@@ -1,47 +1,54 @@
 import numpy as np
 from itertools import product
+from scipy import sparse
 
 class Lattice:
     
-    ''' Class that defines a square lattice which the walkers jumps in. The main caracteristics is the dimension and
-        his size, a number with the number of sites in each direction (assumed equal and odd for all directions). 
+    ''' Class that defines a square lattice which the walkers jumps in. 
+        The main caracteristics is the dimension and his size, a number with
+        the number of sites in each direction (assumed equal and odd for all 
+        directions). 
     '''
     
     def __init__(self,dimension,size):
         
         self.dimension = dimension
         self.size = size
-        # Defines a list where every element is a list of position basis state with its eigenvalues, e.g. (x,y,z).
+        # Defines a list where every element is a list of position basis state with its 
+        # eigenvalues, e.g. (x,y,z).
         self.pos_basis = matrix_scan([],size,dimension,dimension,[])
         
         
 def position_ket(position,size):
     
-    ''' The position ket defines a column matrix associated with a position state in a direction. 
-    The matrix element associated with the origin will be the central element, e.g. in a three sites lattice (0,1,0),
-    where (1,0,0) is the -1 site and (0,0,1) 1. So we ordenate the states from -N/2 to N/2, N+1 beeing the number
-    of sites.
+    ''' The position ket defines a column matrix associated with a position sta-
+        -te in a direction. The matrix element associated with the origin will 
+        be the central element, e.g. in a three sites lattice (0,1,0), where 
+        (1,0,0) is the -1 site and (0,0,1) 1. So we ordenate the states from 
+        -N/2 to N/2, N+1 beeing the number of sites.
     '''
-    
-    pos_ket = np.zeros((size,1))
+
+    pos_ket = sparse.csr_matrix((size,1))
     pos_ket[position + (size//2),0] = 1
-    
+   
     return pos_ket
 
 def matrix_scan(a,size,dimension,dimension_f,pos):    
   
-    ''' Matrix_scan is a recursive function that passes through every position in the n-dimensional square
-    lattice, to define the position basis. The recursivity is used to generalize the scan to any dimension. 
-    We take a position in the N-1 directions and scans to every possible position on the last, then we change 
-    the position on the N-2 direction and rebegin this process (e.g. in a square 2D lattice we scan in the 
-    vertical lines).
+    ''' Matrix_scan is a recursive function that passes through every position 
+    in the n-dimensional square lattice, to define the position basis. The re-
+    -cursivity is used to generalize the scan to any dimension. We take a posi-
+    -tion in the N-1 directions and scans to every possible position on the 
+    last, then we chage the position on the N-2 direction and rebegin this pro-
+    -cess (e.g. in a square 2D lattice we scan in the vertical lines).
             
-    The first argument is a list to save the position in every direction, the second the dimension of the
-    lattice, the third a fixed copy, and the last a parameter to save the position ket on the returning of 
-    the recursivity.
+    The first argument is a list to save the position in every direction, the 
+    second the dimension of the lattice, the third a fixed copy, and the last a
+    parameter to save the position ket on the returning of the recursivity.
     '''
             
-    # If the dimension is not zero, we take a position in the lattice in a direction and pass to the next.
+    # If the dimension is not zero, we take a position in the lattice in a di-
+    # -rection and pass to the next.
     if dimension !=0:
         for i in range(-(size//2),(size//2) +1):
             a.append(i)
@@ -52,9 +59,9 @@ def matrix_scan(a,size,dimension,dimension_f,pos):
             # and we can define the state vector to that position.
                     
             else:
-                pos_state = np.array([1]) # Initial array for tensor product                     
+                pos_state = 1 # Initial scalar for tensor product                     
                 for j in range(0,dimension_f):
-                    pos_state = np.kron(pos_state, position_ket(a[j],size))
+                    pos_state = sparse.kron(pos_state, position_ket(a[j],size))
                                 
                 b = a.copy()  # A copy has to be made to not modify the n-tuple in pos when we pop.   
                 pos.append([b,pos_state])                                     
@@ -65,43 +72,57 @@ def matrix_scan(a,size,dimension,dimension_f,pos):
         
 class FermionCoin:
 
-    ''' The fermion coin class defines the coin operator, that will act as the coin toss defining the direction which
-        the walker will go, accordingly with the possible fermion spin states (up and down). 
+    ''' The fermion coin class defines the coin operator, that will act as the 
+        coin toss defining the direction which the walker will go, accordingly 
+        with the possible fermion spin states (up and down). 
     '''
     
     def __init__(self,coin_parameters):
-        ''' The parameter to pass must be a list with the \theta angles that defines every coin operator,
-        associated with all directions. '''
+
+        ''' The parameter to pass must be a list with the theta angles that de-
+        fines every coin operator, associated with all directions. 
+        '''
         
         self.coin_parameters = coin_parameters
         self.coin = 1
-        #  Takes the tensor product of the coins operators in the total spin basis order C1 \otimes C2 ...
+        #  Takes the tensor product of the coins operators in the total spin ba-
+        #  -sis order C1 \otimes C2 ...
         #  This only works for separable coins.
         for parameter in self.coin_parameters: 
             theta = parameter
             self.coin = np.kron( self.coin, np.array([[np.cos(theta),1j*np.sin(theta)],
                              [1j*np.sin(theta),np.cos(theta)]]))
+
+        self.coin = sparse.csr_matrix(self.coin)
             
         
     def toss(self,walker,lattice):
         
-        # First we have to take the tensor product of the identity on the position space with the coin op.
-        coin_toss = np.kron(np.identity(lattice.size**lattice.dimension),self.coin)
+        # First we have to take the tensor product of the identity on the 
+        # position space with the coin op.
+        dimension = lattice.dimension
+        size = lattice.size
+        pos_identity = sparse.identity(size**dimension)
+        coin_toss = sparse.kron(pos_identity,self.coin,format='csr')
         return np.dot(coin_toss,walker)  # (I \otime Cs)|state>
     
     def entangling_toss2D(self,walker,lattice):
         
-        entangling_toss = np.dot(self.coin,np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]]))
-        entangling_toss = np.kron(np.identity(lattice.size**lattice.dimension),entangling_toss)
+        entangling_op = np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]])
+        entanglin_op = sparse.csr_matrix(entanglin_op)
+        entangling_toss = np.dot(self.coin,entangling_op)
+        pos_identity = sparse.identity(size**dimension)
+        entangling_toss = sparse.kron(pos_identity,entangling_toss,format='csr')
         return np.dot(entangling_toss,walker)
     
 class FermionSpin:
     
-    ''' Class that defines a l = 1/2 fermion spin state.'''
+    ''' Class that defines a l = 1/2 fermion spin state.
+    '''
     
     def __init__(self):
         
-        self.up = np.array([[1],[0]])  # \ket{up}
+        self.up = np.array([[1],[0]])    # \ket{up}
         self.down = np.array([[0],[1]])  # \ket{down}
 
 class BosonSpin:
@@ -118,45 +139,61 @@ class BosonSpin:
 
 class FermionShiftOperator:
     
-    ''' Class that defines the shift operator to a walker with half spin coins. To make the shift operator a 
-    lattice must be defined, i.e. his dimension and number of sites, and a fermion must be given. We associate with
-    the spin up a displacement l+1, while spin down with a displacement l-1.'''
+    ''' Class that defines the shift operator to a walker with half spin coins.
+    To make the shift operator a  lattice must be defined, i.e. his dimension 
+    and number of sites, and a fermion must be given. We associate with the 
+    spin up a displacement l+1, while spin down with a displacement l-1.
+    '''
     
     def __init__(self,lattice,fermion):
-        ''' The first parameter must be a lattice object, while the second must be a fermion.'''                        
+
+        ''' The first parameter must be a lattice object, while the second must
+        be a fermion.
+        '''                        
       
         f = [fermion.up,fermion.down]
         dimension = lattice.dimension
         size = lattice.size
         pos_basis = lattice.pos_basis
        
-        # Here we define the shift operator accordingly to the dimension of the problem. The dimension of
-        # the shift operator is the dimension of an operator on the space Hp \otimes Hc, where Hp is the 
-        # position Hilbert Space and Hc the coin Hilbert space, considering all coins.
+        ''' Here we define the shift operator accordingly to the dimension of the
+        problem. The dimension of the shift operator is the dimension of an o-
+        -perator on the space Hp \otimes Hc, where Hp is the position Hilbert
+        Space and Hc the coin Hilbert space, considering all coins.
+        '''
+        # Dimension of the shift operator.
+        shift_dimension = size**dimension*(2**dimension)
+        # Sparse matrix of the shift operator. 
+        self.shift = sparse.csr_matrix((shift_dimension,shift_dimension),dtype=float)
         
-        self.shift = np.zeros(((size**dimension)*(2**dimension),(size**dimension)*(2**dimension)))
         
-        
-        # In the below loop we take all possible configurations of spin states, 2^(dimension). 
-        # We associate to a binary number (string) every configuration, with 0 to a spin up and 1 to a spin 
-        # down. So the up,up,up state will be associated with 000, while up,down,up is associated with 010.        
+        ''' In the below loop we take all possible configurations of spin sta-
+        -tes, 2^(dimension). We associate to a binary number (string) every con-
+        -figuration, with 0 to a spin up and 1 to a spin down. So the up,up,up 
+        state will be associated with 000, while up,down,up is associated with 
+        010. 
+        '''        
             
         for i in range(0,2**dimension):
             
             b = bin(i)[2:]  # Binary number associated with the configuration.
-            if len(b) < dimension:  # Here we attach zeros to the string to match the number of spins.
+            # Here we attach zeros to the string to match the number of spins.
+            if len(b) < dimension:  
                 for k in range(0,(dimension-len(b))):
                     b = '0' + b
-            # Below we define the spin state associated with a configuration, e.g. \ket{up,up,up}.        
+            # Below we define the spin state associated with a configuration, 
+            # e.g. \ket{up,up,up}.        
             spin = f[int(b[0])] 
             for j in b[1:]:
                 spin = np.kron(spin,f[int(j)])
         
             # Zeros array to sum with the pos. part of the shift operator
-            pos_shift = np.zeros((size**(dimension),size**(dimension)))
+            pos_shift = sparse.csr_matrix((size**(dimension),size**(dimension)),dtype=float)
             
-            # Loop that catchs every possible position state and creates the correspondingly shift accordingly
-            # with the spins state in every direction.
+            # Loop that catchs every possible position state and creates the 
+            # correspondingly shift accordingly with the spins state in every 
+            # direction.
+
             for pos in pos_basis:
                 old_pos = pos[1]
                 new_pos = np.array([1])
@@ -166,7 +203,7 @@ class FermionShiftOperator:
                             
                     if (new_p) <= (size//2) and new_p >= -(size//2):
                                  
-                        new_pos = np.kron(new_pos,position_ket(new_p,size))
+                        new_pos = sparse.kron(new_pos,position_ket(new_p,size),format='csr')
                                 
                     else:
                         new_pos = np.kron(new_pos,position_ket(-1*old_p,size))                 
@@ -180,34 +217,42 @@ class FermionShiftOperator:
     
 class Walker:
     
-    ''' The walker class defines the walker that will go under the walk and the walk itself, i.e. 
-    the unitary evolution that he goes under.'''
+    ''' The walker class defines the walker that will go under the walk and the
+    walk itself, ie. the unitary evolution that he goes under.
+    '''
     
     def __init__(self,spin_init_state,lattice):
         
-        ''' The position initial state is always on the center of the lattice. The first parameter is 
-        the spin initial state and he has to be given accordingly with the dimension of the lattice.
-        The second parameter must be the lattice that the walker walks in.'''
+        ''' The position initial state is always on the center of the lattice.
+        The first parameter is the spin initial state and he has to be given 
+        accordingly with the dimension of the lattice. The second parameter must
+        be the lattice that the walker walks in.
+        '''
         
-        # Makes a column matrix for the pos. state, in the fashion |x>|y>.. in the center of the lattice.
+        # Makes a column matrix for the pos. state, in the fashion |x>|y>.. in 
+        # the center of the lattice.
         self.pos_state = position_ket(0,lattice.size)
         for i in range (0,lattice.dimension-1):
-            self.pos_state = np.kron(self.pos_state,position_ket(0,lattice.size))
+            self.pos_state = sparse.kron(self.pos_state,position_ket(0,lattice.size),format='csr)
 
-        self.spin_state = spin_init_state
-        self.state = np.kron(self.pos_state,self.spin_state)        # |psi> = |pos>|spin>
+        self.spin_state = sparse.csr_matrix(spin_init_state)
+        # |psi> = |pos>|spin>
+        self.state = sparse.kron(self.pos_state,self.spin_state,format='csr') 
         self.density = np.dot(self.state,np.conj((self.state).T))   # \rho = |psi><psi|
             
             
     def walk(self,coin,shift_operator,lattice):
         
-        ''' Method that makes the walker walk in one time step. The first parameter must be the coin(s) that will be used,
-        the second the shift operator and the last the lattice.'''
+        ''' Method that makes the walker walk in one time step. The first 
+        parameter must be the coin(s) that will be used, the second the shift 
+        operator and the last the lattice.
+        '''
         
         self.state = coin.toss(self.state,lattice)  # Coin toss.
-        #self.state = coin.entangling_toss2D(self.state,lattice) # entanglig coin toss
+        #self.state = coin.entangling_toss2D(self.state,lattice) # Entanglig coin toss
         self.state = np.dot(shift_operator.shift,self.state)    # Shift.
-        self.density = np.dot(self.state,np.conj((self.state).T))   # Update of the density matrix.
+        # Update of the density matrix.
+        self.density = np.dot(self.state,np.conj((self.state).T)) 
         
         
 class ElephantFermionShiftOperator:
@@ -217,9 +262,10 @@ class ElephantFermionShiftOperator:
     
     def __init__(self,elephant_shift,elephant_memory_combinations,lattice,fermion,time):
         
-        ''' The first parameter must be the previous elephant shift, the second the combinations of the delta
-        parameters in every direction, the third the lattice, the forth the fermion and the last the time in
-        which the shift operator will be defined. 
+        ''' The first parameter must be the previous elephant shift, the second
+        the combinations of the delta parameters in every direction, the third 
+        the lattice, the forth the fermion and the last the time in which the 
+        shift operator will be defined. 
         '''
         
         f = [fermion.up,fermion.down]
@@ -299,9 +345,9 @@ class ElephantWalker:
         '''
         
         # Makes the initial position state in the center of the lattice.
-        self.pos_state = position_ket(0,lattice.size)
+        self.pos_state = sparse.csr_matrix(position_ket(0,lattice.size))
         for i in range(0,lattice.dimension-1):
-            self.pos_state = np.kron(self.pos_state,position_ket(0,lattice.size))
+            self.pos_state = sparse.kron(self.pos_state,position_ket(0,lattice.size),format='csr)
         
         self.spin_state = spin_init_state   # Initial spin state of the walker.
         self.state = np.kron(self.pos_state,self.spin_state)    # |state> = |pos> \otimes |spin>.
