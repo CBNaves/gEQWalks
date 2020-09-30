@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import qwalk
 import statistics
+import time
+
+start_time = time.time()
 
 L = qwalk.Lattice(1,201)
 f = qwalk.FermionSpin()
@@ -21,7 +24,7 @@ for t in range(0,101):
     mean_position.append(mp)
     mean_sq_position.append(msq)
     sq_variance.append(sv)
-    walker_negativity.append(statistics.negativity(W.density,L,True,[1,2]))
+    #walker_negativity.append(statistics.negativity(W.density,L,True,[1,2]))
     W.walk(c,S,L)
 
 positions = []
@@ -30,7 +33,7 @@ for x in range(-(L.size//2),(L.size//2) +1):
 
 fig = plt.figure(figsize=(12,12)) 
 plt.title('Distribuição de probabilidade')
-k,= plt.plot(positions,position_statistics[100][0])
+k,= plt.plot(positions,position_statistics[20][0])
 plt.grid(linestyle='--')
 plt.xlabel(r'x')
 plt.ylabel(r'Pr(x)')
@@ -46,10 +49,12 @@ plt.ylabel(r'\sigma^(2)(t)')
 plt.savefig('variance')
 plt.clf()
 
-plt.title(r'\sigma^{2}(t) \times t')
-l, = plt.plot(time_steps,walker_negativity)
-plt.grid(linestyle='--')
-plt.xlabel(r't')
-plt.ylabel(r'N(\rho)')
-plt.savefig('negativity')
-plt.clf()
+#plt.title(r'\sigma^{2}(t) \times t')
+#l, = plt.plot(time_steps,walker_negativity)
+#plt.grid(linestyle='--')
+#plt.xlabel(r't')
+#plt.ylabel(r'N(\rho)')
+#plt.savefig('negativity')
+#plt.clf()
+
+print("--- %s seconds ---" % (time.time() - start_time))
