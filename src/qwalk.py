@@ -94,7 +94,7 @@ class FermionCoin:
         #  This only works for separable coins.
         for parameter in self.coin_parameters: 
             theta = parameter
-            self.coin = np.kron( self.coin, np.array([[np.cos(theta),1j*np.sin(theta)],
+            self.coin = np.kron(self.coin,np.array([[np.cos(theta),1j*np.sin(theta)],
                              [1j*np.sin(theta),np.cos(theta)]]))
 
         self.coin = sparse.csr_matrix(self.coin)
@@ -111,9 +111,12 @@ class FermionCoin:
         return np.dot(coin_toss,walker)  # (I \otime Cs)|state>
     
     def entangling_toss2D(self,walker,lattice):
-        
+
+        size = lattice.size
+        dimension = lattice.dimension
+
         entangling_op = np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]])
-        entanglin_op = sparse.csr_matrix(entanglin_op)
+        entangling_op = sparse.csr_matrix(entangling_op)
         entangling_toss = np.dot(self.coin,entangling_op)
         pos_identity = sparse.identity(size**dimension)
         entangling_toss = sparse.kron(pos_identity,entangling_toss,format='csr')
@@ -248,15 +251,18 @@ class Walker:
         self.density = np.dot(self.state,np.conj((self.state).T))   # \rho = |psi><psi|
             
             
-    def walk(self,coin,shift_operator,lattice):
+    def walk(self,coin,shift_operator,lattice,entangling):
         
         ''' Method that makes the walker walk in one time step. The first 
         parameter must be the coin(s) that will be used, the second the shift 
         operator and the last the lattice.
         '''
         
-        self.state = coin.toss(self.state,lattice)  # Coin toss.
-        #self.state = coin.entangling_toss2D(self.state,lattice) # Entanglig coin toss
+        if entangling:
+            self.state = coin.entangling_toss2D(self.state,lattice)
+        else:
+            self.state = coin.toss(self.state,lattice)  # Coin toss.
+
         self.state = np.dot(shift_operator.shift,self.state)    # Shift.
         # Update of the density matrix.
         self.density = np.dot(self.state,np.conj((self.state).T)) 
@@ -345,6 +351,9 @@ class ElephantFermionShiftOperator:
 
         # Sum the old shift operator, with the old memory combs.            
         self.shift = elephant_shift + self.shift
+        test = np.array(self.shift.todense())
+        print(np.dot(test,test.T))
+        print('')
                     
                 
         
@@ -385,7 +394,8 @@ class ElephantWalker:
         ''' Method that makes the elephant walker walk in one time step. The 
         first parameter must be the coin(s) that will be used, the second the 
         lattice and the third and last a fermion and the time to define the 
-        shift operator. '''
+        shift operator. 
+        '''
         
         dimension = lattice.dimension
         # coin toss (I \otimes C)|state>.

@@ -164,7 +164,7 @@ def negativity(density,lattice,coin,negativity_dimension):
         pt_norm = 0
         for l in range(0,2*size):
             pt_norm = pt_norm + np.linalg.norm(np.real(eigen_val[l]))
-        
+ 
     negativity = (pt_norm - 1)/2
     
     return negativity   
