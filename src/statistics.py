@@ -3,7 +3,7 @@ import numpy as np
 def position_statistics(density_function,lattice,coin): 
     
     '''Function that returns an array of probabilities associated with a given 
-    time step in a given in all directions, the mean positions, the mean square
+    time step in all directions, the mean positions, the mean square
     of the positions and the variance respectively. The first parameter must be
     the density function, the second the lattice in which he walks. The last 
     parameter is the dimension of the coin, i.e. 2 if a fermion, 3 if a boson 

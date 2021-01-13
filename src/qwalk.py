@@ -21,11 +21,11 @@ class Lattice:
         
 def position_ket(position,size):
     
-    ''' The position ket defines a column matrix associated with a position sta-
-        -te in a direction. The matrix element associated with the origin will 
-        be the central element, e.g. in a three sites lattice (0,1,0), where 
-        (1,0,0) is the -1 site and (0,0,1) 1. So we ordenate the states from 
-        -N/2 to N/2, N+1 beeing the number of sites.
+    ''' The position ket defines a column matrix associated with a position 
+        state in a direction. The matrix element associated with the origin
+        will be the central element, e.g. in a three sites lattice (0,1,0),
+        where (1,0,0) is the -1 site and (0,0,1) 1. So we ordenate the states  
+        from -N/2 to N/2, N+1 beeing the number of sites.
     '''
 
     pos_ket = sparse.csr_matrix((size,1),dtype=float)
@@ -77,25 +77,25 @@ def matrix_scan(a,size,dimension,dimension_f,pos):
 class FermionCoin:
 
     ''' The fermion coin class defines the coin operator, that will act as the 
-        coin toss defining the direction which the walker will go, accordingly 
-        with the possible fermion spin states (up and down). 
+    coin toss defining the direction which the walker will go, accordingly 
+    with the possible fermion spin states (up and down). 
     '''
     
     def __init__(self,coin_parameters):
 
-        ''' The parameter to pass must be a list with the theta angles that de-
-        fines every coin operator, associated with all directions. 
+        ''' The parameter to pass must be a list with the theta angles that 
+        defines every coin operator, associated with all directions. 
         '''
         
         self.coin_parameters = coin_parameters
         self.coin = 1
-        #  Takes the tensor product of the coins operators in the total spin ba-
-        #  -sis order C1 \otimes C2 ...
+        #  Takes the tensor product of the coins operators in the total spin 
+        #  basis order C1 \otimes C2 ...
         #  This only works for separable coins.
         for parameter in self.coin_parameters: 
             theta = parameter
-            self.coin = np.kron(self.coin,np.array([[np.cos(theta),1j*np.sin(theta)],
-                             [1j*np.sin(theta),np.cos(theta)]]))
+            coin = np.array([[np.cos(theta),1j*np.sin(theta)],[1j*np.sin(theta),np.cos(theta)]])
+            self.coin = np.kron(self.coin,coin)
 
         self.coin = sparse.csr_matrix(self.coin)
             
@@ -164,7 +164,7 @@ class FermionShiftOperator:
         size = lattice.size
         pos_basis = lattice.pos_basis
        
-        ''' Here we define the shift operator accordingly to the dimension of the
+        '''Here we define the shift operator accordingly to the dimension of the
         problem. The dimension of the shift operator is the dimension of an o-
         -perator on the space Hp \otimes Hc, where Hp is the position Hilbert
         Space and Hc the coin Hilbert space, considering all coins.
@@ -209,15 +209,17 @@ class FermionShiftOperator:
                     old_p = pos[0][x]
                     # Spin up : l --> l+1, spin down: l --> l-1.
                     new_p = old_p + (-1)**(int(b[x]))  
-                            
+                    
+                    # Cyclic conditions for the unitarity of the operator.      
                     if (new_p) <= (size//2) and new_p >= -(size//2):
-                                 
-                        new_pos = sparse.kron(new_pos,position_ket(new_p,size),format='csr')
+                        npk = position_ket(new_p,size)         
+                        new_pos = sparse.kron(new_pos, npk, format='csr')
                                 
                     else:
-                        new_pos = sparse.kron(new_pos,position_ket(-1*old_p,size))                 
-                
-                pos_shift = pos_shift + np.dot(new_pos,(old_pos.T)) # Sum of |l><l +/-1|.
+                        npk = position_ket(-1*old_p,size)
+                        new_pos = sparse.kron(new_pos, npk, format='csr')                
+                # Sum of |l><l +/-1|.
+                pos_shift = pos_shift + np.dot(new_pos,(old_pos.T))
             
             # \ket{spin} --> \ket{\spin}\bra{\spin} (operator).
             spin_op = np.dot(spin,spin.T)  
@@ -228,15 +230,15 @@ class FermionShiftOperator:
 class Walker:
     
     ''' The walker class defines the walker that will go under the walk and the
-    walk itself, ie. the unitary evolution that he goes under.
+    walk itself, i.e. the unitary evolution that he goes under.
     '''
     
     def __init__(self,spin_init_state,lattice):
         
         ''' The position initial state is always on the center of the lattice.
         The first parameter is the spin initial state and he has to be given 
-        accordingly with the dimension of the lattice. The second parameter must
-        be the lattice that the walker walks in.
+        accordingly with the dimension of the lattice. The second parameter 
+        must be the lattice that the walker walks in.
         '''
         
         # Makes a column matrix for the pos. state, in the fashion |x>|y>.. in 
@@ -246,9 +248,10 @@ class Walker:
             self.pos_state = sparse.kron(self.pos_state,position_ket(0,lattice.size),format='csr')
 
         self.spin_state = sparse.csr_matrix(spin_init_state)
-        # |psi> = |pos>|spin>
-        self.state = sparse.kron(self.pos_state,self.spin_state,format='csr') 
-        self.density = np.dot(self.state,np.conj((self.state).T))   # \rho = |psi><psi|
+        # |psi> = |pos>|spin>.
+        self.state = sparse.kron(self.pos_state,self.spin_state,format='csr')
+        # \rho = |psi><psi|.
+        self.density = np.dot(self.state,np.conj((self.state).T))   
             
             
     def walk(self,coin,shift_operator,lattice,entangling):
@@ -261,16 +264,17 @@ class Walker:
         if entangling:
             self.state = coin.entangling_toss2D(self.state,lattice)
         else:
-            self.state = coin.toss(self.state,lattice)  # Coin toss.
+            self.state = coin.toss(self.state,lattice)  
 
-        self.state = np.dot(shift_operator.shift,self.state)    # Shift.
+        self.state = np.dot(shift_operator.shift,self.state)    
         # Update of the density matrix.
         self.density = np.dot(self.state,np.conj((self.state).T)) 
         
         
 class ElephantFermionShiftOperator:
     
-    ''' Class that defines the fermion shift operator to the elephant quantum walk.
+    ''' Class that defines the fermion shift operator to the elephant quantum
+        walk. 
     '''
     
     def __init__(self,elephant_shift,elephant_memory_combinations,lattice,fermion,time):
@@ -281,24 +285,27 @@ class ElephantFermionShiftOperator:
         shift operator will be defined. 
         '''
         
-        f = [fermion.up,fermion.down]
+
         dimension = lattice.dimension
         size = lattice.size
         pos_basis = lattice.pos_basis
-        
-        shift_dimension = (size**dimension)*(2**dimension)
+
+        f = [fermion.up,fermion.down]        
+        shift_dimension = (size**dimension)*(2**dimension)        
+
         self.shift = sparse.csr_matrix((shift_dimension,shift_dimension),dtype=float)      
         
         # Updates the coeficients of the past elephant_shift operator, 
         # assuming the uniform distribuition of the memory.
+        # See how to generalize!
         if time > 1: 
             elephant_shift = (((time-1)/time)**(dimension))*elephant_shift
         
         ''' In the below loop we take all possible configurations of fermion 
         spin states, 2^(dimension). We associate to a binary number (string) 
         every configuration, with 0 to a spin up and 1 to a spin down. So the 
-        up,up,up state will be associated with 000, while up,down,up is associa-
-        ted with 010.
+        up,up,up state will be associated with 000, while up,down,up is asso-
+        ciated with 010.
         '''  
         
         for i in range(0,2**dimension):
@@ -306,16 +313,15 @@ class ElephantFermionShiftOperator:
             pos_shift = sparse.csr_matrix((size**(dimension),size**(dimension)),dtype=float)
             
             # Loop that takes every delta_x,delta_y,delta_z,... combinations.
-            for j in elephant_memory_combinations: 
-                
-                b = bin(i)[2:] # Binary number associated with the configuration.
-                # Here we attach zeros to the string to match the number of spins.
+            for j in elephant_memory_combinations:
+                # Binary number associated with the configuration.
+                b = bin(i)[2:] 
+                # Here we attach zeros to the string to match the number of 
+                # spins.
                 if len(b) < dimension: 
                     for k in range(0,(dimension-len(b))):
                         b = '0' + b
-                        
-                # Below we define the spin state associated with a configuration,
-                # e.g. \ket{up,up,up}.
+                # def. spin state 
                 spin = f[int(b[0])] 
                 for k in b[1:]:
                     spin = np.kron(spin,f[int(k)])
@@ -325,54 +331,60 @@ class ElephantFermionShiftOperator:
                     new_pos = 1 # Scalar for the initial tensor product.
                     for x in range(0,dimension):   
                         old_p = pos[0][x]   # Old position.
-                        # l_j -> l_j + (-1)^(spin)*delta^j_t 
+                        # l_j -> l_j + (-1)**(spin)*delta^j_t
                         new_p = old_p + (-1)**(int(b[x]))*j[x] 
                         
-                        # Conditional on the borders, imposing ciclic conditions,
-                        # maintaining the unitarity.
-                        
-                        if (new_p) <= (size//2) and new_p >= -(size//2):       
-                            new_pos = sparse.kron(new_pos,position_ket(new_p,size))
+                        # Conditional on the borders, imposing ciclic condi-
+                        # tions, maintaining the unitarity.
+                        if (new_p) <= (size//2) and new_p >= -(size//2): 
+                            npk = position_ket(new_p,size)      
+                            new_pos = sparse.kron(new_pos,npk)
                                 
                         else:
-                            new_pos = sparse.kron(new_pos,position_ket(-1*old_p,size))
+                            npk = position_ket(-1*old_p,size)
+                            new_pos = sparse.kron(new_pos,npk)
                         
                     # Summing the position shift operator part.          
                     pos_shift = pos_shift + np.dot(new_pos,(old_pos.T))
 
-                # \ket{spin} --> \ket{\spin}\bra{\spin} (operator)    
-                spin_op = np.dot(spin,spin.T)  
-            
+                    # \ket{spin} --> \ket{\spin}\bra{\spin} (operator)    
+                    spin_op = np.dot(spin,spin.T)  
+
                 if time!= 0 :
-                    new_shift =  (1/time**(dimension))*sparse.kron(pos_shift,spin_op)
+                    t_fac = (1/time**(dimension))
+                    new_shift = t_fac*sparse.kron(pos_shift,spin_op)
                     self.shift = self.shift + new_shift
                 else:         
                     self.shift = self.shift + sparse.kron(pos_shift,spin_op)
 
-        # Sum the old shift operator, with the old memory combs.            
-        self.shift = elephant_shift + self.shift
-        test = np.array(self.shift.todense())
-        print(np.dot(test,test.T))
-        print('')
-                    
-                
+        # Sum of the old shift operator, with the old memory combs.            
+        self.shift = elephant_shift + self.shift                           
         
 class ElephantWalker:
     
     ''' Class that defines the elephant walker.
     '''
     
-    def __init__(self,spin_init_state,lattice):
+    def __init__(self,spin_init_state,lattice,q,p):
         
-        ''' The first parameter must be the spin initial state, accordingly wi-
-        th the dimension of the problem.The second the lattice in which the ele-
-        phant walks.
+        ''' The first parameter must be the spin initial state, accordingly
+        with the dimension of the problem. The second the lattice in which the 
+        elephant walks. The third is the probability that +1 is sorted in the 
+        first time step, and the last that the elephant will use the same
+        shift shift from a past instant, while 1-p is the prob. of using the
+        opposite.  
         '''
+
         size = lattice.size
         dimension = lattice.dimension
-
+        
+        # q is the probability of sorting +1 in the first step.
+        self.q = q
+        # p is the probability of using +\delta_t sorted.
+        self.p = p
         # Makes the initial position state in the center of the lattice.
         self.pos_state = position_ket(0,lattice.size)
+
         for i in range(0,lattice.dimension-1):
             self.pos_state = sparse.kron(self.pos_state,position_ket(0,lattice.size),format='csr')
         # Initial spin state of the walker.
@@ -401,35 +413,57 @@ class ElephantWalker:
         # coin toss (I \otimes C)|state>.
         self.state = coin.toss(self.state,lattice)
  
-        # list of the new memory comb. to define the new shift operator.
+        ''' List of the new memory comb. to define the new shift operator.
+        We have to consider this if there are independent memories for all
+        directions.
+        '''  
         memory_combinations = [] 
-        
         
         if time == 0: # In the first time step the elephant has to no memory.
             deltas = []
-            # Loop that selects the displacements, GENERALIZE FOR q and 1-q!!!
+            # Loop that selects the displacements.
             for i in range(0,dimension): 
                 
-                # If the random number in [0,1] is <= 0.5 delta = +1.
-                if np.random.random()<=0.5: deltas.append(+1)
+                # If the random number in [0,1] is <= q delta = +1.
+                if np.random.random()<=self.q[i]: deltas.append(+1)
                 # Else delta = -1    
                 else: deltas.append(-1)
-                    
-            self.memory.append(deltas) # Save the displacements in the elephant memory.
+
+            # Save the displacements in the elephant memory.        
+            self.memory.append(deltas) 
             # In this case we dont have to make any combinations.
             memory_combinations.append(self.memory[0])
+
             a = self.elephant_shift
             b = memory_combinations
             c = lattice
             d = fermion
-            e_s = ElephantFermionShiftOperator(a,b,c,d,0)
-            # Saves the elephant shift operator in the elephant.    
-            self.elephant_shift = e_s.shift 
-            
+            e_s = ElephantFermionShiftOperator(a,b,c,d,0)    
+            self.state = np.dot(e_s.shift,self.state) # S_E(0) |state>.
+            # Updates the density operator.        
+            self.density = np.dot(self.state,np.conj(self.state.T))
+
         else:
+            # List that saves the actual random displacements +/1 for 
+            # every direction.
+            deltas = []
+                      
+            for i in range(0,dimension):
+            # SEE HOW TO PASS A GENERAL FUNCTION! 
+                past_t = np.random.uniform(time)
+                if np.random.random()<=self.p[i]:
+                    deltas.append(self.memory[round(past_t)-1][i])
+                else:
+                    deltas.append(-1*self.memory[round(past_t)-1][i])
+                
+            # Saving the news displacements in the memory.
+            self.memory.append(deltas)
+
             ''' Here we have to consider if the dimension is greater than one 
             because if it isnt we dont have to make any combination of the del-
-            -tas, as we have just one dimension. '''
+            -tas, as we have just one dimension. 
+            '''
+
             if dimension > 1 :
                 # list of the n-tuples of coordinates
                 combinations = [] 
@@ -437,7 +471,8 @@ class ElephantWalker:
                 ''' Loop that takes every n-tuple of deltas in the memory and 
                 makes combinations n to n with the new n-tuple, where the n is
                 the dimension of the problem and the combinations do not repeat
-                deltas in the same direction. '''
+                deltas in the same direction. 
+                '''
     
                 for i in self.memory[:-1]:
                     coordinates = np.array([i,self.memory[-1]]) 
@@ -455,32 +490,21 @@ class ElephantWalker:
             else:
                 memory_combinations = [self.memory[-1]]
                 
-            
             # Below we define the elephant fermion shift operator accordingly 
             # with the time step.
 
-            # In the t=1 time instant the elephant will be shifted with the sa-
-            # -me operator in t=0.
-            if time!=1:
-                a = self.elephant_shift
-                b = memory_combinations
-                c = lattice
-                d = fermion
-                e_s = ElephantFermionShiftOperator(a,b,c,d,time)
-                self.elephant_shift = e_s.shift
-            # List that saves the actual random displacements +/1 for 
-            # every direction.
-            deltas = []
-             
-            # Loop that selects the displacements, GENERALIZE FOR q and 1-q!!           
-            for i in range(0,dimension): 
-                if np.random.random()<=0.5: deltas.append(+1) 
-                else: deltas.append(-1) 
-            
-            # Saving the news displacements in the memory.
-            self.memory.append(deltas) 
-            
-        self.state = np.dot(self.elephant_shift,self.state) # S_E |state>.
-        # Updates the density operator.        
-        self.density = np.dot(self.state,np.conj(self.state.T)) 
-        
+            a = self.elephant_shift
+            b = memory_combinations 
+            c = lattice
+            d = fermion
+            e_s = ElephantFermionShiftOperator(a,b,c,d,time)
+
+            # Saves the shift operator in the elephant.
+            self.elephant_shift = e_s.shift
+            # S_E(t)|state>.         
+            self.state = np.dot(self.elephant_shift,self.state) 
+            # Updates the density operator.        
+            self.density = np.dot(self.state,np.conj(self.state.T))
+            # Renormalization.
+            self.density = self.density/np.trace(self.density.todense())  
+
