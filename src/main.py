@@ -6,7 +6,7 @@ import time
 import os
 from scipy import optimize
 
-qwalk_type = input('Enter the quantum walk type (common,elephant): ')
+qwalk_type = input('Enter the quantum walk type (common, elephant): ')
 
 params = [x.split(' ')[2:] for x in open(qwalk_type+'.cfg').read().splitlines()]
 dimension = int(params[0][0])
@@ -135,7 +135,7 @@ positions = np.array(positions)
 #       return np.sqrt(1/(2*np.pi*sig**2))*np.exp(-(x/sig)**2)
 
 fig = plt.figure(figsize=(16,9),dpi=200) 
-plt.title(r'$\theta_x,\theta_y = \pi/4,|\uparrow,\uparrow>, t = 20$',fontsize=16)
+plt.title(r'$\theta = \pi/4,|\uparrow>, t ='+str(t)+'$',fontsize=16)
 k,= plt.plot(positions,position_statistics[t][0],lw=2,label='Simulation')
 plt.grid(linestyle='--')
 plt.xlabel(r'x',fontsize=16)
@@ -143,7 +143,7 @@ plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 plt.ylabel(r'Pr(x)',fontsize=16)
 plt.legend(handles=[k],fontsize=14)
-plt.savefig('1D_qwalks/x_position_distribuition_normlzd_02',bbox_inches='tight')
+plt.savefig('x_position_distribuition_01',bbox_inches='tight')
 plt.clf()
 
 def general_variance(x,a,b,c,d):
@@ -155,7 +155,7 @@ b = round(fit_params[1],2)
 c = round(fit_params[2],2)
 d = round(fit_params[3],2)
 
-plt.title(r'$\theta_x , \theta_y = \pi/4,|\uparrow,\uparrow>$',fontsize=16)
+plt.title(r'$\theta =  \pi/4,|\uparrow>$',fontsize=16)
 l, = plt.plot(time_steps,variance_x,label = 'Simulation',lw=2)
 fit_label = str(a)+r'$t^{3}$'+ '+' +str(b)+r'$t^{2}$'
 fit_label = fit_label + '+' + str(c)+r'$t$' + '+' + str(d)
@@ -166,5 +166,5 @@ plt.ylabel(r'$\sigma_{x}^{2}$(t)',fontsize=16)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 plt.legend(handles=[l,m],fontsize=14)
-plt.savefig('1D_qwalks/variance_normalzd_02',bbox_inches='tight')
+plt.savefig('variance_01',bbox_inches='tight')
 plt.clf()

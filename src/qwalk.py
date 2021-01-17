@@ -100,7 +100,7 @@ class FermionCoin:
         self.coin = sparse.csr_matrix(self.coin)
             
         
-    def toss(self,walker,lattice):
+    def toss(self, density, lattice):
         
         # First we have to take the tensor product of the identity on the 
         # position space with the coin op.
@@ -108,9 +108,10 @@ class FermionCoin:
         size = lattice.size
         pos_identity = sparse.identity(size**dimension)
         coin_toss = sparse.kron(pos_identity,self.coin,format='csr')
-        return np.dot(coin_toss,walker)  # (I \otime Cs)|state>
+        # (I \otimes C)\rho(I \otimes C\dagger)
+        return np.dot(np.dot(coin_toss,density),np.conj(coin_toss.T))
     
-    def entangling_toss2D(self,walker,lattice):
+    def entangling_toss2D(self,density,lattice):
 
         size = lattice.size
         dimension = lattice.dimension
@@ -120,7 +121,8 @@ class FermionCoin:
         entangling_toss = np.dot(self.coin,entangling_op)
         pos_identity = sparse.identity(size**dimension)
         entangling_toss = sparse.kron(pos_identity,entangling_toss,format='csr')
-        return np.dot(entangling_toss,walker)
+        density = np.dot(entangling_toss,density)
+        return np.dot(density,np.conj(entangling_toss.T))
     
 class FermionSpin:
     
@@ -243,15 +245,15 @@ class Walker:
         
         # Makes a column matrix for the pos. state, in the fashion |x>|y>.. in 
         # the center of the lattice.
-        self.pos_state = position_ket(0,lattice.size)
+        pos_state = position_ket(0,lattice.size)
         for i in range (0,lattice.dimension-1):
-            self.pos_state = sparse.kron(self.pos_state,position_ket(0,lattice.size),format='csr')
+            pos_state = sparse.kron(pos_state,position_ket(0,lattice.size),format='csr')
 
-        self.spin_state = sparse.csr_matrix(spin_init_state)
+        spin_state = sparse.csr_matrix(spin_init_state)
         # |psi> = |pos>|spin>.
-        self.state = sparse.kron(self.pos_state,self.spin_state,format='csr')
+        state = sparse.kron(pos_state,spin_state,format='csr')
         # \rho = |psi><psi|.
-        self.density = np.dot(self.state,np.conj((self.state).T))   
+        self.density = np.dot(state,np.conj((state).T))   
             
             
     def walk(self,coin,shift_operator,lattice,entangling):
@@ -262,13 +264,13 @@ class Walker:
         '''
         
         if entangling:
-            self.state = coin.entangling_toss2D(self.state,lattice)
+            self.density = coin.entangling_toss2D(self.density,lattice)
         else:
-            self.state = coin.toss(self.state,lattice)  
-
-        self.state = np.dot(shift_operator.shift,self.state)    
-        # Update of the density matrix.
-        self.density = np.dot(self.state,np.conj((self.state).T)) 
+            self.density = coin.toss(self.density,lattice)  
+        
+        # E(\rho) = S\rhoS\dagger
+        self.density = np.dot(shift_operator.shift,self.density)    
+        self.density = np.dot(self.density,np.conj((shift_operator.shift).T)) 
         
         
 class ElephantFermionShiftOperator:
@@ -383,16 +385,16 @@ class ElephantWalker:
         # p is the probability of using +\delta_t sorted.
         self.p = p
         # Makes the initial position state in the center of the lattice.
-        self.pos_state = position_ket(0,lattice.size)
+        pos_state = position_ket(0,lattice.size)
 
         for i in range(0,lattice.dimension-1):
-            self.pos_state = sparse.kron(self.pos_state,position_ket(0,lattice.size),format='csr')
+            pos_state = sparse.kron(pos_state,position_ket(0,lattice.size),format='csr')
         # Initial spin state of the walker.
-        self.spin_state = spin_init_state  
+        spin_state = sparse.csr_matrix(spin_init_state,dtype='float')  
         # |state> = |pos> \otimes |spin>.
-        self.state = sparse.kron(self.pos_state,self.spin_state)
+        state = sparse.kron(pos_state,spin_state)
         # \rho = |state><state|.
-        self.density = np.dot(self.state,np.conj(self.state.T)) 
+        self.density = np.dot(state,np.conj(state.T)) 
         
         # We save the elephant shift operator with the elephant in order to not
         # redefine him entirely every time step.
@@ -410,8 +412,7 @@ class ElephantWalker:
         '''
         
         dimension = lattice.dimension
-        # coin toss (I \otimes C)|state>.
-        self.state = coin.toss(self.state,lattice)
+        self.density = coin.toss(self.density,lattice)
  
         ''' List of the new memory comb. to define the new shift operator.
         We have to consider this if there are independent memories for all
@@ -438,10 +439,10 @@ class ElephantWalker:
             b = memory_combinations
             c = lattice
             d = fermion
-            e_s = ElephantFermionShiftOperator(a,b,c,d,0)    
-            self.state = np.dot(e_s.shift,self.state) # S_E(0) |state>.
-            # Updates the density operator.        
-            self.density = np.dot(self.state,np.conj(self.state.T))
+            e_s = ElephantFermionShiftOperator(a,b,c,d,0)
+            # S_E\rhoS_E^\dagger    
+            self.density = np.dot(e_s.shift,self.density)
+            self.density = np.dot(self.density,np.conj(e_s.shift.T))
 
         else:
             # List that saves the actual random displacements +/1 for 
@@ -501,10 +502,7 @@ class ElephantWalker:
 
             # Saves the shift operator in the elephant.
             self.elephant_shift = e_s.shift
-            # S_E(t)|state>.         
-            self.state = np.dot(self.elephant_shift,self.state) 
-            # Updates the density operator.        
-            self.density = np.dot(self.state,np.conj(self.state.T))
-            # Renormalization.
-            self.density = self.density/np.trace(self.density.todense())  
-
+            # S_E(t)\rhoS_E^\dagger.         
+            self.density = np.dot(self.elephant_shift,self.density)         
+            self.density = np.dot(self.density,np.conj(self.elephant_shift.T))
+            
