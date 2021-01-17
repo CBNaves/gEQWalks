@@ -118,9 +118,8 @@ else:
 #            prob_dist_file.writelines('%f\t' %c for c in ps[i])
 #            prob_dist_file.write('\n')
         W.walk(c,L,f,t)
-        print(np.trace(W.density.todense())),
-        print('time:',t)
-        os.system('clear')     
+#        print(np.trace(W.density.todense()))
+        print('time: ',t,end = '\r')     
     
     print("--- %s seconds ---" % (time.time() - start_time))
 
@@ -150,10 +149,10 @@ def general_variance(x,a,b,c,d):
     return a*x**3+b*x**2+c*x+d
 
 fit_params, pcov = optimize.curve_fit(general_variance,time_steps,variance_x)
-a = round(fit_params[0],2)
-b = round(fit_params[1],2)
-c = round(fit_params[2],2)
-d = round(fit_params[3],2)
+a = round(fit_params[0],5)
+b = round(fit_params[1],5)
+c = round(fit_params[2],5)
+d = round(fit_params[3],5)
 
 plt.title(r'$\theta =  \pi/4,|\uparrow>$',fontsize=16)
 l, = plt.plot(time_steps,variance_x,label = 'Simulation',lw=2)
