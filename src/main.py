@@ -9,25 +9,35 @@ from datetime import datetime
 from shutil import copy
 
 def plot(main_dir, parameters):
-    
+
+    ''' Function that makes the plots for the final position probabilities  
+        distribuitions and the variances, for every dimension.
+        The first parameter is the directory string in which the plots will 
+        be saved and the last the parameters for the plots label and titles.
+    '''
+
+    # Conditional for the qwalk type, so that we include the extra parameters 
+    # in the title in the case of the elephant.
     if 'E' in main_dir:
         dimension,size,thetas,bloch_angle,phase_angle,q,p = parameters
         title_str = r'$ \Theta (s) = '+str(thetas)
         title_str = title_str +', \Omega (s) = '+str(bloch_angle)
         title_str = title_str +', \phi (s) = '+str(phase_angle)
-        title_str = title_str +', '+str(q)+', '+str(p)+'$'
+        title_str = title_str +', q = '+str(q)+', p = '+str(p)+'$'
     else:
         dimension,size,thetas,bloch_angle,phase_angle = parameters
         title_str = r'$ \Theta (s) = '+str(thetas)
         title_str = title_str +', \Omega (s) = '+str(bloch_angle)
         title_str = title_str +', \phi (s) = '+str(phase_angle)+'$'
-
+    
+    # Reading the probabilities dist. and the variances from the files.    
     prob_dist_file = open(main_dir+'/pd_'+str(size//2 - 1),'r')
     statistics_file = open(main_dir+'/statistics.txt','r')
     
-    probabilities = []
+    probabilities = [] 
     statistics = []
     
+    # Here we read the lines and separate the elements not including spaces.
     for x in prob_dist_file.readlines():
         d_prob = []
         for y in x.split('\t'):
@@ -43,6 +53,7 @@ def plot(main_dir, parameters):
     statistics = np.array(statistics)
     probabilities = np.array(probabilities)
 
+    # List of the positions in the lattice for the plot.
     positions = []
     for x in range(-(size//2),(size//2)+1):
         positions.append(x)
@@ -51,9 +62,14 @@ def plot(main_dir, parameters):
 #    def gaussian(x,sig):
 #        return np.sqrt(1/(2*np.pi*sig**2))*np.exp(-(x/sig)**2)
 
+    # Function to the variance fiting. The polinomial form is specific.
     def general_variance(x,a,b,c,d):
         return a*x**3+b*x**2+c*x+d
 
+    # In the statistics file, every line contains the time step in the first 
+    # column, mean position and variance respectively for all dim.
+    # in the fashion (mp1,v1,mp2,v2,...) separated by \t.
+ 
     time_steps = statistics[:,0]
 
     for i in range(0,dimension):
@@ -99,27 +115,43 @@ def plot(main_dir, parameters):
 
 def common_qwalk(dimension,size,f,thetas,coin_init_state):
 
+    ''' Function that simulates the common quantum walk. The parameters are
+        the dimension of the lattice, its size, f is the fermion, thetas the
+        list that specifies the coins operators, and the last is the coin
+        inital state.
+
+        Returns the simulation directory.
+    '''
+
+    # Main directory in which the simulation directory will be saved,
+    # separated by qwalk type and dimension.
     main_dir = 'data/'+str(dimension)+'D_qwalks'
+    # date and time for the directory of the simulation runned.
     date_time = datetime.now().strftime('%d%m%Y-%H:%M:%S')
+
     try:
         os.mkdir(main_dir+'/'+date_time)
         main_dir = main_dir+'/'+date_time
+
+    # If the main_dir defined firstly doesnt exists, create.
     except:
         os.mkdir(main_dir)
         main_dir = main_dir+'/'+date_time
         os.mkdir(main_dir)
-
+    
+    # Creating the file that will save the mean positions and variances.    
     statistics_file = open(main_dir+'/statistics.txt','w+')
-#    statistics_file.write('#time \t mean position \t variances\n')
-
+    # A copy of the parameters used in the simulation is made in the 
+    # simulation directory.
     copy('common.cfg', main_dir+'/parameters.txt')
 
-    start_time = time.time()
-    L = qwalk.Lattice(dimension,size)
-    S = qwalk.FermionShiftOperator(L,f)
-    c = qwalk.FermionCoin(thetas)
-    W = qwalk.Walker(coin_init_state,L)
+    start_time = time.time() # Start time of the simulation.
+    L = qwalk.Lattice(dimension,size) # Lattice.
+    S = qwalk.FermionShiftOperator(L,f) # Shift Operator.
+    c = qwalk.FermionCoin(thetas)   # Coin operators.
+    W = qwalk.Walker(coin_init_state,L) # Walker.
 
+    # Loop until the border of the lattice is reached.
     for t in range(0,size//2):
 
         ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
@@ -128,14 +160,17 @@ def common_qwalk(dimension,size,f,thetas,coin_init_state):
         statistics_file.writelines('%f\t' %c for c in mp[0])
         statistics_file.writelines('%f\t' %c for c in sq[0])
         statistics_file.write('\n')
-
+        
+        # For every time step a file to save the probabilities is created.
         prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
-
+        
+        # We save the probabilities for a given dimension in on line, the next
+        # in the next line, and so forth.
         for i in range(0,dimension):
             prob_dist_file.writelines('%f\t' %c for c in ps[i])
             prob_dist_file.write('\n')
 
-        W.walk(c,S,L,False)
+        W.walk(c,S,L,False) # A time step walk.
 #        print(np.trace(W.density.todense()))
         print('time: ',t, end='\r')
 
@@ -146,42 +181,61 @@ def common_qwalk(dimension,size,f,thetas,coin_init_state):
     return(main_dir)
 
 def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
+
+    ''' Function that simulates the elephant quantum walk. The parameters are
+        the dimension of the lattice, its size, f is the fermion, thetas the
+        list that specifies the coins operators, coin_init_state is the inital
+        state, q the probability of sorting +1 in t=0 and p the probability of
+        using the same displacement sorted.
+
+        Returns the simulation directory.
+    '''
     
+    # Main directory in which the simulation directory will be saved,
+    # separated by qwalk type and dimension.
     main_dir = 'data/'+str(dimension)+'D_Eqwalks'
+    # Date and time to name the simulation directory.
     date_time = datetime.now().strftime('%d%m%Y-%H:%M:%S')
+
     try:
         os.mkdir(main_dir+'/'+date_time)
         main_dir = main_dir+'/'+date_time
+
+    # If the main directory doesnt exists, create.
     except:
         os.mkdir(main_dir)
         main_dir = main_dir+'/'+date_time
         os.mkdir(main_dir)
-
+    
+    # Creating the file in which the statistics will be saved.
     statistics_file = open(main_dir+'/statistics.txt','w+')
-#    statistics_file.write('#time \t mean position \t variances\n')
-
+    # Copyng the parameters used in to the simulation directory.
     copy('elephant.cfg', main_dir+'/parameters.txt')
 
-    start_time = time.time()
-    L = qwalk.Lattice(dimension,size)
-    c = qwalk.FermionCoin(thetas)
-    W = qwalk.ElephantWalker(coin_init_state,L,q,p)
+    start_time = time.time() # Start time of the simulation.
+    L = qwalk.Lattice(dimension,size) # Lattice. 
+    c = qwalk.FermionCoin(thetas)   # Coin operators.
+    W = qwalk.ElephantWalker(coin_init_state,L,q,p) # Walker.
     
     for t in range(0,size//2):
  
         ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
+
         statistics_file.write('%f\t' %t)
         statistics_file.writelines('%f\t' %c for c in mp[0])
         statistics_file.writelines('%f\t' %c for c in sq[0])
         statistics_file.write('\n')
         
+        # For every time step a file to save the probabilities is created.
         prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
 
+        # We save the probabilities for a given dimension in on line, the next
+        # in the next line, and so forth.
         for i in range(0,dimension):
             prob_dist_file.writelines('%f\t' %c for c in ps[i])
             prob_dist_file.write('\n')
 
-        W.walk(c,L,f,t)
+        W.walk(c,L,f,t) # A time step walk.
 #        print(np.trace(W.density.todense()))
         print('time: ',t,end = '\r')
      
