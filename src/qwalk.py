@@ -522,13 +522,12 @@ class ElephantWalker:
                 pickup the ceil of the sorted number. 
             '''
 
-            past_t = np.random.uniform(0,time)
-            # To not include the 1st delta after the first time step. 
-            if past_t == 0 and time != 0: past_t = 1 
+            past_t = np.random.uniform(0,time+1)
+            if past_t == 0 : past_t = 1 
             if np.random.random()<=self.p[i]:
-                deltas.append(self.memory[int(np.ceil(past_t))][i])
+                deltas.append(self.memory[int(np.ceil(past_t))-1][i])
             else:
-                deltas.append(-1*self.memory[int(np.ceil(past_t))][i])
+                deltas.append(-1*self.memory[int(np.ceil(past_t))-1][i])
                 
         # Saving the news displacements in the memory.
         self.memory.append(deltas)    
