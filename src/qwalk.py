@@ -28,7 +28,7 @@ def position_ket(position,size):
         from -N/2 to N/2, N+1 beeing the number of sites.
     '''
 
-    pos_ket = sparse.csr_matrix((size,1),dtype=float)
+    pos_ket = sparse.lil_matrix((size,1),dtype=complex)
     pos_ket[position + (size//2),0] = 1
    
     return pos_ket
@@ -98,7 +98,7 @@ class FermionCoin:
             self.coin = np.kron(self.coin,coin)
 
         # Change the coin matrix to a sparse matrix.
-        self.coin = sparse.csr_matrix(self.coin)
+        self.coin = sparse.lil_matrix(self.coin)
             
     def toss(self, density, lattice):
         
@@ -107,7 +107,7 @@ class FermionCoin:
         dimension = lattice.dimension
         size = lattice.size
         pos_identity = sparse.identity(size**dimension)
-        coin_toss = sparse.kron(pos_identity,self.coin,format='csr')
+        coin_toss = sparse.kron(pos_identity,self.coin,format='lil')
 
         # (I \otimes C)\rho(I \otimes C\dagger)
         return np.dot(np.dot(coin_toss,density),np.conj(coin_toss.T))
@@ -121,10 +121,10 @@ class FermionCoin:
         dimension = lattice.dimension
 
         entangling_op = np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]])
-        entangling_op = sparse.csr_matrix(entangling_op)
+        entangling_op = sparse.lil_matrix(entangling_op)
         entangling_toss = np.dot(self.coin,entangling_op)
         pos_identity = sparse.identity(size**dimension)
-        entangling_toss = sparse.kron(pos_identity,entangling_toss,format='csr')
+        entangling_toss = sparse.kron(pos_identity,entangling_toss,format='lil')
         density = np.dot(entangling_toss,density)
         return np.dot(density,np.conj(entangling_toss.T))
     
@@ -180,7 +180,7 @@ class FermionShiftOperator:
         # Dimension of the shift operator.
         shift_dimension = size**dimension*(2**dimension)
         # Sparse matrix of the shift operator. 
-        self.shift = sparse.csr_matrix((shift_dimension,shift_dimension),dtype=float)
+        self.shift = sparse.lil_matrix((shift_dimension,shift_dimension),dtype=complex)
         
         
         ''' In the below loop we take all possible configurations of spin sta-
@@ -204,7 +204,7 @@ class FermionShiftOperator:
                 spin = np.kron(spin,f[int(j)])
         
             # Zeros array to sum with the pos. part of the shift operator
-            pos_shift = sparse.csr_matrix((size**(dimension),size**(dimension)),dtype=float)
+            pos_shift = sparse.lil_matrix((size**(dimension),size**(dimension)),dtype=complex)
             
             # Loop that catchs every possible position state and creates the 
             # correspondingly shift accordingly with the spins state in every 
@@ -221,11 +221,11 @@ class FermionShiftOperator:
                     # Cyclic conditions for the unitarity of the operator.      
                     if (new_p) <= (size//2) and new_p >= -(size//2):
                         npk = position_ket(new_p,size)         
-                        new_pos = sparse.kron(new_pos, npk, format='csr')
+                        new_pos = sparse.kron(new_pos, npk, format='lil')
                                 
                     else:
                         npk = position_ket(-1*old_p,size)
-                        new_pos = sparse.kron(new_pos, npk, format='csr')                
+                        new_pos = sparse.kron(new_pos, npk, format='lil')                
                 # Sum of |l><l +/-1|.
                 pos_shift = pos_shift + np.dot(new_pos,(old_pos.T))
             
@@ -254,11 +254,11 @@ class Walker:
         # the center of the lattice.
         pos_state = position_ket(0,lattice.size)
         for i in range (0,lattice.dimension-1):
-            pos_state = sparse.kron(pos_state,position_ket(0,lattice.size),format='csr')
+            pos_state = sparse.kron(pos_state,position_ket(0,lattice.size),format='lil')
 
-        spin_state = sparse.csr_matrix(spin_init_state)
+        spin_state = sparse.lil_matrix(spin_init_state)
         # |psi> = |pos>|spin>.
-        state = sparse.kron(pos_state,spin_state,format='csr')
+        state = sparse.kron(pos_state,spin_state,format='lil')
         # \rho = |psi><psi|.
         self.density = np.dot(state,np.conj((state).T))   
             
@@ -299,7 +299,7 @@ def ElephantFermionShiftOperator(lattice,fermion,time,j):
     shift_dimension = (size**dimension)*(2**dimension)        
 
     # Defines the type and size of the fermion shift operator.
-    shift = sparse.csr_matrix((shift_dimension,shift_dimension),dtype=float)      
+    shift = sparse.lil_matrix((shift_dimension,shift_dimension),dtype=complex)      
             
     ''' In the below loop we take all possible configurations of fermion 
     spin states, 2^(dimension). We associate to a binary number (string) 
@@ -311,7 +311,7 @@ def ElephantFermionShiftOperator(lattice,fermion,time,j):
     for i in range(0,2**dimension):
     
         # Position part of the shift operator.
-        pos_shift = sparse.csr_matrix((size**(dimension),size**(dimension)),dtype=float)
+        pos_shift = sparse.lil_matrix((size**(dimension),size**(dimension)),dtype=complex)
         # Binary number associated with the configuration.
         b = bin(i)[2:]
  
@@ -344,7 +344,7 @@ def ElephantFermionShiftOperator(lattice,fermion,time,j):
                     new_pos = sparse.kron(new_pos,npk)
                                 
                 else:
-                    npk = position_ket(-1*old_p,size)
+                    npk = position_ket(new_p - (new_p/np.linalg.norm(new_p))*size,size)
                     new_pos = sparse.kron(new_pos,npk)
                         
             # Summing the position shift operator part.          
@@ -353,12 +353,10 @@ def ElephantFermionShiftOperator(lattice,fermion,time,j):
         # \ket{spin} --> \ket{\spin}\bra{\spin} (operator)    
         spin_op = np.dot(spin,np.conj(spin.T))  
 
-        if time!= 0 :
-            t_fac = (1/time**(dimension/2))
-            new_shift = t_fac*sparse.kron(pos_shift,spin_op)
-            shift = shift + new_shift
-        else:         
-            shift = shift + sparse.kron(pos_shift,spin_op)
+        if time!= 0 : t_fac = (1/time**(dimension/2))
+        else: t_fac = 1 
+        new_shift = t_fac*sparse.kron(pos_shift,spin_op)
+        shift = shift + new_shift
 
     return shift                         
         
@@ -388,9 +386,9 @@ class ElephantWalker:
         pos_state = position_ket(0,lattice.size)
 
         for i in range(0,lattice.dimension-1):
-            pos_state = sparse.kron(pos_state,position_ket(0,lattice.size),format='csr')
+            pos_state = sparse.kron(pos_state,position_ket(0,lattice.size),format='lil')
         # Initial spin state of the walker.
-        spin_state = sparse.csr_matrix(spin_init_state,dtype='float')  
+        spin_state = sparse.lil_matrix(spin_init_state,dtype=complex)  
         # |state> = |pos> \otimes |spin>.
         state = sparse.kron(pos_state,spin_state)
         # \rho = |state><state|.
@@ -499,7 +497,7 @@ class ElephantWalker:
                 new_shift = ElephantFermionShiftOperator(a,b,time,j)
                 # Saving the new kraus operators.                      
                 self.elephant_shifts = np.concatenate((self.elephant_shifts,[new_shift]),axis=0)
-            new_density = sparse.csr_matrix((shift_dim,shift_dim),dtype='float')
+            new_density = sparse.lil_matrix((shift_dim,shift_dim),dtype=complex)
 
             # Aplying the quantum map, \sum_j S_j \rho S_j^\dagger     
             for op in self.elephant_shifts:
