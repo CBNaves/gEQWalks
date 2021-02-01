@@ -1,0 +1,19 @@
+# --------------- PUT A SMALL DESCRIPTION OF THE SYSTEM!! ------------------ 
+# To change the values of the parameters just erase the previous values,
+#without adding spaces or other simbols.
+#
+# The dimension has to be an integer.
+#
+# The size must be an odd number, so that the lattice is symmetrical with
+#respect to the origin.
+#
+# Coin_type is the type of the coin used, fermion or boson. The type must be
+#given for every dimension, separated by spaces. At the moment only fermion is
+#supported.
+#
+# Thetas are the angles that specifies the coin operator. Must be given in 
+#DEGREES for every dimension and separated by spaces.
+#
+# The coin_initial state is specified by givin the pair of angles in the bloch 
+#sphere for every dimension, also separated by spaces, in the form: 
+#   theta/2 phi.
