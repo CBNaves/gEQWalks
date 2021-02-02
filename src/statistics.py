@@ -27,9 +27,11 @@ def position_statistics(density_function,lattice,coin):
     # trace out the spins degree of freedom.
     a = size**(dimension)
     b = coin**(dimension)
+    c = size//2
 
-    dense_df = dense_df.reshape(a,b,a,b)
-    pos_density_function = np.trace(dense_df,axis1=1,axis2=3)
+    dense_df = dense_df.reshape(a,b,c,a,b,c)
+    pos_density_function = np.trace(dense_df,axis1=2,axis2=5)
+    pos_density_function = np.trace(pos_density_function,axis1=1,axis2=3)
     
     ''' The probabilities of beeing in one lattice site is given by the diago-
     -nal elements of the pos. density function. We take the real part of the 

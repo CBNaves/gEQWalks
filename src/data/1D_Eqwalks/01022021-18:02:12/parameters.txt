@@ -1,0 +1,7 @@
+dimension = 1
+size = 501
+coin_type = fermion
+thetas = 45
+coin_init_state = 45 0
+q = 0.5
+p = 1
