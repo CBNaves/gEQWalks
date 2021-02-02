@@ -234,9 +234,9 @@ def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
         for i in range(0,dimension):
             prob_dist_file.writelines('%f\t' %c for c in ps[i])
             prob_dist_file.write('\n')
-
-        W.walk(c,L,f,t) # A time step walk.
+        
         print(np.trace(W.density.todense()))
+        W.walk(c,L,f,t) # A time step walk.        
 #        print('time: ',t,end = '\r')
      
     prob_dist_file.close()
