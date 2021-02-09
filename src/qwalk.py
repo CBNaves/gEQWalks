@@ -18,7 +18,6 @@ class Lattice:
         # with its eigenvalues, e.g. (x,y,z).
         self.pos_basis = matrix_scan([],size,dimension,dimension,[])
         
-        
 def position_ket(position,size):
     
     ''' The position ket defines a column matrix associated with a position 
@@ -442,7 +441,8 @@ class ElephantWalker:
             a = lattice
             b = fermion
             e_s = ElephantFermionShiftOperator(a,b,time,memory_combinations[0])
-            # S_E\rhoS_E^\dagger    
+            # S_E\rhoS_E^\dagger
+            self.elephant_shifts = np.concatenate((self.elephant_shifts,[e_s]),axis=0)    
             self.density = np.dot(e_s,self.density)
             self.density = np.dot(self.density,np.conj(e_s.T))
 
@@ -497,10 +497,11 @@ class ElephantWalker:
                 new_shift = ElephantFermionShiftOperator(a,b,time,j)
                 # Saving the new kraus operators.                      
                 self.elephant_shifts = np.concatenate((self.elephant_shifts,[new_shift]),axis=0)
-            new_density = sparse.lil_matrix((shift_dim,shift_dim),dtype=complex)
 
+            new_density = sparse.lil_matrix((shift_dim,shift_dim),dtype=complex)
+            
             # Aplying the quantum map, \sum_j S_j \rho S_j^\dagger     
-            for op in self.elephant_shifts:
+            for op in self.elephant_shifts[1:]:
                 pnd = np.dot(op,self.density)
                 pnd = np.dot(pnd,np.conj(op.T))
                 new_density = new_density + pnd

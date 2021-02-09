@@ -33,10 +33,11 @@ def plot(main_dir, parameters):
     # Reading the probabilities dist. and the variances from the files.    
     prob_dist_file = open(main_dir+'/pd_'+str(size//2 - 1),'r')
     statistics_file = open(main_dir+'/statistics.txt','r')
+    entanglement_file = open(main_dir+'/entanglement_entropy.txt','r')
     
     probabilities = [] 
     statistics = []
-    
+    entang_entrop = []    
     # Here we read the lines and separate the elements not including spaces.
     for x in prob_dist_file.readlines():
         d_prob = []
@@ -50,8 +51,15 @@ def plot(main_dir, parameters):
             if y != '\n': t_stat.append(float(y))
         statistics.append(t_stat)
 
+    for x in entanglement_file.readlines():
+        ent_data = []
+        for y in x.split('\t'):
+            if y != '\n': ent_data.append(float(y))
+        entang_entrop.append(ent_data)
+ 
     statistics = np.array(statistics)
     probabilities = np.array(probabilities)
+    entang_entrop = np.array(entang_entrop)
 
     # List of the positions in the lattice for the plot.
     positions = []
@@ -75,6 +83,8 @@ def plot(main_dir, parameters):
     for i in range(0,dimension):
 
         label_dimension = 'x_{'+str(i+1)+'}'
+        coin_dimension = 'c_{'+str(i+1)+'}'
+
         fig = plt.figure(figsize=(16,9),dpi=200) 
         plt.title(title_str+r'$, t ='+str(size//2 - 1)+'$',fontsize=16)
         k,= plt.plot(positions,probabilities[i,:],lw=2,label='Simulation')
@@ -107,11 +117,23 @@ def plot(main_dir, parameters):
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
         plt.legend(handles=[l,m],fontsize=14)
-        plt.savefig(main_dir+'/'+label_dimension+'variance',bbox_inches='tight')
+        plt.savefig(main_dir+'/'+label_dimension+'_variance',bbox_inches='tight')
+        plt.clf()
+        
+        plt.title(r'$'+coin_dimension+'$'+', '+title_str,fontsize=16)
+        n, = plt.plot(time_steps,entang_entrop[:,i],label = 'Entanglement Entropy',lw=2)
+        plt.grid(linestyle='--')
+        plt.xlabel(r't',fontsize=16)
+        plt.ylabel(r'$S_{E}^{('+str(i+1)+')}$(t)',fontsize=16)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.legend(handles=[n],fontsize=14)
+        plt.savefig(main_dir+'/'+coin_dimension+'_entropy',bbox_inches='tight')
         plt.clf()
 
     prob_dist_file.close()
-    statistics_file.close()     
+    statistics_file.close()
+    entanglement_file.close()     
 
 def common_qwalk(dimension,size,f,thetas,coin_init_state):
 
@@ -141,6 +163,8 @@ def common_qwalk(dimension,size,f,thetas,coin_init_state):
     
     # Creating the file that will save the mean positions and variances.    
     statistics_file = open(main_dir+'/statistics.txt','w+')
+    entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
+
     # A copy of the parameters used in the simulation is made in the 
     # simulation directory.
     copy('common.cfg', main_dir+'/parameters.txt')
@@ -155,11 +179,15 @@ def common_qwalk(dimension,size,f,thetas,coin_init_state):
     for t in range(0,size//2):
 
         ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
+        entang_entrop = statistics.entanglement_entropy(W.density,L)
 
         statistics_file.write('%f\t' %t)
         statistics_file.writelines('%f\t' %c for c in mp[0])
         statistics_file.writelines('%f\t' %c for c in sq[0])
         statistics_file.write('\n')
+        
+        entanglement_file.writelines('%f\t' %c for c in entang_entrop)
+        entanglement_file.write('\n')
         
         # For every time step a file to save the probabilities is created.
         prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
@@ -209,6 +237,8 @@ def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
     
     # Creating the file in which the statistics will be saved.
     statistics_file = open(main_dir+'/statistics.txt','w+')
+    entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
+
     # Copyng the parameters used in to the simulation directory.
     copy('elephant.cfg', main_dir+'/parameters.txt')
 
@@ -220,11 +250,15 @@ def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
     for t in range(0,size//2):
  
         ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
+        entang_entrop = statistics.entanglement_entropy(W.density,L)
 
         statistics_file.write('%f\t' %t)
         statistics_file.writelines('%f\t' %c for c in mp[0])
         statistics_file.writelines('%f\t' %c for c in sq[0])
         statistics_file.write('\n')
+
+        entanglement_file.writelines('%f\t' %c for c in entang_entrop)
+        entanglement_file.write('\n')
         
         # For every time step a file to save the probabilities is created.
         prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')

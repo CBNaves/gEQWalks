@@ -13,11 +13,13 @@ def position_statistics(density_function,lattice,coin):
     dense_df = np.array(dense_df)
     dimension = lattice.dimension
     size = lattice.size
+
     positions = [] # List to save every position n-tuple.
     for i in lattice.pos_basis:
         positions.append(i[0])
         
     positions = np.array(positions)
+  
     # Array that stores the mean position in the lattice in every direction. 
     mean_pos = np.zeros((1,dimension))
     # Array that stores the mean squared position in the lattice ''. 
@@ -167,4 +169,47 @@ def negativity(density,lattice,coin,negativity_dimension):
  
     negativity = (pt_norm - 1)/2
     
-    return negativity   
+    return negativity
+
+def entanglement_entropy(density,lattice):
+    
+    ''' Function that returns the negativity of a bipartity system, two direc-
+    -tions or a pos. in a direction and the coin. The first parameter is the 
+    density function and the second the lattice. The third parameter indicates 
+    if the negativity will be calculated with the coin or not with True or 
+    False, respectively. The last parameter gives the dimension numbers that 
+    will be considered in the calculation of the negativity.
+    '''
+    
+    dimension = lattice.dimension
+    size = lattice.size
+    dense_df = density.todense()
+    dense_df = np.array(dense_df)
+   
+    a = size**dimension
+    b =  2**(dimension)
+    reshaped_density = dense_df.reshape((a,b,a,b))
+    
+    coins_density = np.trace(reshaped_density,axis1=0,axis2=2)
+    coin_reshape_list = [2 for x in range(0,2**dimension)]
+    coins_density = coins_density.reshape(coin_reshape_list)
+
+    remaining_density = coins_density
+    entanglement_entropy_list = []
+
+    for i in range(0,dimension):
+        try:
+            coin_density = remaining_density.reshape((2,2**(dimension-i-1),2,2**(dimension-i-1)))
+            remaining_density = np.trace(coin_density,axis1=0,axis2=2)
+            coin_density = np.trace(coin_density,axis1=1,axis2=3)
+            
+        except:
+            coin_density = remaining_density
+
+        eigen_val,eigen_vec = np.linalg.eig(coin_density)
+        lp = np.real(eigen_val[0]) 
+        lm = np.real(eigen_val[1]) 
+        entropy = (-lm*np.log(lm)- lp*np.log(lp))/np.log(2)
+        entanglement_entropy_list.append(entropy)
+
+    return entanglement_entropy_list
