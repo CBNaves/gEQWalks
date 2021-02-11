@@ -79,11 +79,9 @@ def position_statistics(density_function,lattice,coin):
             
             # To trace out axes that comes before the axes that we wanna keep.
             if j+1+dimension-k == 2*(dimension-k):  
-                #one_d_trace_pos = (1/size)*np.trace(one_d_trace_pos,axis1=0,axis2=j+1)
                 one_d_trace_pos = np.trace(one_d_trace_pos,axis1=0,axis2=j+1)
                 
             else:
-                #one_d_trace_pos = (1/size)*np.trace(one_d_trace_pos,axis1=j+1,axis2=j+1+dimension-k)
                 one_d_trace_pos = np.trace(one_d_trace_pos,axis1=j+1,axis2=j+1+dimension-k)
                 
         one_d_probabilities.append(np.real(np.diagonal(one_d_trace_pos)))
@@ -173,42 +171,46 @@ def negativity(density,lattice,coin,negativity_dimension):
 
 def entanglement_entropy(density,lattice):
     
-    ''' Function that returns the negativity of a bipartity system, two direc-
-    -tions or a pos. in a direction and the coin. The first parameter is the 
-    density function and the second the lattice. The third parameter indicates 
-    if the negativity will be calculated with the coin or not with True or 
-    False, respectively. The last parameter gives the dimension numbers that 
-    will be considered in the calculation of the negativity.
+    ''' Function that returns the entanglement entropy of the coins degrees.
+        The first parameter must be the density matrix and the second the
+        lattice.
     '''
     
     dimension = lattice.dimension
     size = lattice.size
-    dense_df = density.todense()
+    dense_df = density.todense() # Dense density function.
     dense_df = np.array(dense_df)
    
     a = size**dimension
     b =  2**(dimension)
-    reshaped_density = dense_df.reshape((a,b,a,b))
+    reshaped_density = dense_df.reshape((a,b,a,b)) 
     
+    # Performing the trace of the positions degrees.
     coins_density = np.trace(reshaped_density,axis1=0,axis2=2)
+
+    # Reshaping the coin density in a suitable manner.
     coin_reshape_list = [2 for x in range(0,2**dimension)]
     coins_density = coins_density.reshape(coin_reshape_list)
 
-    remaining_density = coins_density
+    remaining_density = coins_density 
     entanglement_entropy_list = []
 
     for i in range(0,dimension):
         try:
-            coin_density = remaining_density.reshape((2,2**(dimension-i-1),2,2**(dimension-i-1)))
+            coin_reshape_list = (2,2**(dimension-i-1),2,2**(dimension-i-1))
+            coin_density = remaining_density.reshape(coin_reshape_list)
             remaining_density = np.trace(coin_density,axis1=0,axis2=2)
             coin_density = np.trace(coin_density,axis1=1,axis2=3)
-            
+        
+        # If the reshape returns an error that means that we dont need to
+        # do it anymore.     
         except:
             coin_density = remaining_density
 
         eigen_val,eigen_vec = np.linalg.eig(coin_density)
-        lp = np.real(eigen_val[0]) 
-        lm = np.real(eigen_val[1]) 
+        lp = np.real(eigen_val[0])  # First eigen value
+        lm = np.real(eigen_val[1])  # Second eigen value
+        # S_E = -\lamb_+log_2(\lamb+) - \lamb-log_2(\lamb-)
         entropy = (-lm*np.log(lm)- lp*np.log(lp))/np.log(2)
         entanglement_entropy_list.append(entropy)
 

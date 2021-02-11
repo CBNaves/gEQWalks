@@ -400,7 +400,7 @@ class ElephantWalker:
         self.elephant_shifts = np.array(self.elephant_shifts)
 
         # Defines a list that saves the displacements of every time step.
-        self.memory = []    
+        self.memory = []
     
     def walk(self,coin,lattice,fermion,time):
         
@@ -483,7 +483,7 @@ class ElephantWalker:
                 memory_combinations.pop(0) 
                 
             else:
-                memory_combinations = [self.memory[-1]]
+                memory_combinations = self.memory[-1]
                 
             # Below we define the elephant fermion shift operator accordingly 
             # with the time step.
