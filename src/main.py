@@ -215,6 +215,7 @@ def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
     start_time = time.time() # Start time of the simulation.
     L = qwalk.Lattice(dimension,size) # Lattice. 
     c = qwalk.FermionCoin(thetas)   # Coin operators.
+    S = qwalk.FermionShiftOperator(L,f) # Shift Operator.
     W = qwalk.ElephantWalker(coin_init_state,L,q,p) # Walker.
     
     for t in range(0,size//2):
@@ -235,9 +236,9 @@ def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
             prob_dist_file.writelines('%f\t' %c for c in ps[i])
             prob_dist_file.write('\n')
         
-        print(np.trace(W.density.todense()))
-        W.walk(c,L,f,t) # A time step walk.        
-#        print('time: ',t,end = '\r')
+#        print(np.trace(W.density.todense()))
+        W.walk(S.shift,L,t) # A time step walk.        
+        print('time: ',t,end = '\r')
      
     prob_dist_file.close()
     statistics_file.close()
