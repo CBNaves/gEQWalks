@@ -210,8 +210,38 @@ def entanglement_entropy(density,lattice):
         eigen_val,eigen_vec = np.linalg.eig(coin_density)
         lp = np.real(eigen_val[0])  # First eigen value
         lm = np.real(eigen_val[1])  # Second eigen value
+
+        if lp == 0: lgp = 1 # To avoid log(0)
+        else: lgp = np.log(lp)
+        if lm == 0: lgm = 1
+        else: lgm = np.log(lm)
+
         # S_E = -\lamb_+log_2(\lamb+) - \lamb-log_2(\lamb-)
-        entropy = (-lm*np.log(lm)- lp*np.log(lp))/np.log(2)
+        entropy = (-lm*lgm- lp*lgp)/np.log(2)
         entanglement_entropy_list.append(entropy)
 
     return entanglement_entropy_list
+
+def trace_distance(rho,sigma,lattice):
+    
+    dimension = lattice.dimension
+    size = lattice.size
+    dense_rho = rho.todense() # Dense density function.
+    dense_rho = np.array(dense_rho)
+    dense_sigma = rho.todense() 
+    dense_sigma = np.array(dense_sigma)
+   
+    a = size**dimension
+    b =  2**(dimension)
+    reshaped_rho = dense_rho.reshape((a,b,a,b))
+    reshaped_sigma = dense_sigma.reshape((a,b,a,b))
+
+    coin_rho = np.trace(reshaped_rho,axis1=0,axis2=2)
+    coin_sigma = np.trace(reshaped_sigma,axis1=0,axis2=2)
+    
+    dif_density = coin_rho - coin_sigma
+    dif_eigen_val, dif_eigen_vec = np.linalg.eig(dif_density)
+    dif_eigen_val = np.real(dif_eigen_val)
+
+    trace_dist = (1/2)*sum(dif_eigen_val)
+    return trace_dist    

@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import qwalk
+import gEQWalks
 import statistics
 import time
 import os
@@ -8,7 +8,7 @@ from scipy import optimize
 from datetime import datetime
 from shutil import copy
 
-def plot(main_dir, parameters):
+def plot(main_dir, parameters, tmax):
 
     ''' Function that makes the plots for the final position probabilities  
         distribuitions and the variances, for every dimension.
@@ -18,20 +18,22 @@ def plot(main_dir, parameters):
 
     # Conditional for the qwalk type, so that we include the extra parameters 
     # in the title in the case of the elephant.
-    if 'E' in main_dir:
-        dimension,size,thetas,bloch_angle,phase_angle,q,p = parameters
-        title_str = r'$ \Theta (s) = '+str(thetas)
-        title_str = title_str +', \Omega (s) = '+str(bloch_angle)
-        title_str = title_str +', \phi (s) = '+str(phase_angle)
-        title_str = title_str +', q = '+str(q)+', p = '+str(p)+'$'
-    else:
-        dimension,size,thetas,bloch_angle,phase_angle = parameters
-        title_str = r'$ \Theta (s) = '+str(thetas)
-        title_str = title_str +', \Omega (s) = '+str(bloch_angle)
-        title_str = title_str +', \phi (s) = '+str(phase_angle)+'$'
+    dimension,size,thetas,bloch_angle,phase_angle,q = parameters
+    str_q = '['
+    for i in q:
+        if i > 10**(3): str_q = str_q + '\infty ,'
+        else: str_q = str_q + str(i)+' ,'
+
+    str_q = str_q[0:np.size(str_q)-2]
+    str_q = str_q +']'
+        
+    title_str = r'$ \Theta (s) = '+str(thetas)
+    title_str = title_str +', \Omega (s) = '+str(bloch_angle)
+    title_str = title_str +', \phi (s) = '+str(phase_angle)
+    title_str = title_str +', q = '+str_q+'$'
     
     # Reading the probabilities dist. and the variances from the files.    
-    prob_dist_file = open(main_dir+'/pd_'+str(size//2 - 1),'r')
+    prob_dist_file = open(main_dir+'/pd_'+str(tmax-1),'r')
     statistics_file = open(main_dir+'/statistics.txt','r')
     entanglement_file = open(main_dir+'/entanglement_entropy.txt','r')
     
@@ -71,14 +73,16 @@ def plot(main_dir, parameters):
 #        return np.sqrt(1/(2*np.pi*sig**2))*np.exp(-(x/sig)**2)
 
     # Function to the variance fiting. The polinomial form is specific.
-    def general_variance(x,a,b,c,d):
-        return a*x**3+b*x**2+c*x+d
+    def general_variance(x,a,b):
+        return a*x+ b
 
     # In the statistics file, every line contains the time step in the first 
     # column, mean position and variance respectively for all dim.
     # in the fashion (mp1,v1,mp2,v2,...) separated by \t.
  
     time_steps = statistics[:,0]
+    time_steps = np.array(time_steps)
+    log_times = np.log(time_steps[1:])
 
     for i in range(0,dimension):
 
@@ -86,7 +90,7 @@ def plot(main_dir, parameters):
         coin_dimension = 'c_{'+str(i+1)+'}'
 
         fig = plt.figure(figsize=(16,9),dpi=200) 
-        plt.title(title_str+r'$, t ='+str(size//2 - 1)+'$',fontsize=16)
+        plt.title(title_str+r'$, t ='+str(tmax-1)+'$',fontsize=16)
         k,= plt.plot(positions,probabilities[i,:],lw=2,label='Simulation')
         plt.grid(linestyle='--')
         plt.xlabel(r'$'+label_dimension+'$',fontsize=16)
@@ -99,21 +103,19 @@ def plot(main_dir, parameters):
         plt.clf()
         
         variance = statistics[:,dimension+1+i]
-        
-        fit_params, pcov = optimize.curve_fit(general_variance,time_steps,variance)
+        log_variance = np.log(variance[1:])
+
+        fit_params, pcov = optimize.curve_fit(general_variance,log_times,log_variance)
         a = round(fit_params[0],5)
         b = round(fit_params[1],5)
-        c = round(fit_params[2],5)
-        d = round(fit_params[3],5)
 
         plt.title(title_str,fontsize=16)
-        l, = plt.plot(time_steps,variance,label = 'Simulation',lw=2)
-        fit_label = str(a)+r'$t^{3}$'+ '+' +str(b)+r'$t^{2}$'
-        fit_label = fit_label + '+' + str(c)+r'$t$' + '+' + str(d)
-        m, = plt.plot(time_steps,general_variance(time_steps,*fit_params),label = fit_label,ls='--')
+        l, = plt.plot(log_times,log_variance,label = 'Simulation',lw=2)
+        fit_label = str(a)+r'$log(t)$'+ '+' +str(b)
+        m, = plt.plot(log_times,general_variance(log_times,*fit_params),label = fit_label,ls='--')
         plt.grid(linestyle='--')
-        plt.xlabel(r't',fontsize=16)
-        plt.ylabel(r'$\sigma_{'+label_dimension+'}^{2}$(t)',fontsize=16)
+        plt.xlabel(r'log(t)',fontsize=16)
+        plt.ylabel(r'$log(\sigma_{'+label_dimension+'}^{2}$(t))',fontsize=16)
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
         plt.legend(handles=[l,m],fontsize=14)
@@ -135,80 +137,7 @@ def plot(main_dir, parameters):
     statistics_file.close()
     entanglement_file.close()     
 
-def common_qwalk(dimension,size,f,thetas,coin_init_state):
-
-    ''' Function that simulates the common quantum walk. The parameters are
-        the dimension of the lattice, its size, f is the fermion, thetas the
-        list that specifies the coins operators, and the last is the coin
-        inital state.
-
-        Returns the simulation directory.
-    '''
-
-    # Main directory in which the simulation directory will be saved,
-    # separated by qwalk type and dimension.
-    main_dir = 'data/'+str(dimension)+'D_qwalks'
-    # date and time for the directory of the simulation runned.
-    date_time = datetime.now().strftime('%d%m%Y-%H:%M:%S')
-
-    try:
-        os.mkdir(main_dir+'/'+date_time)
-        main_dir = main_dir+'/'+date_time
-
-    # If the main_dir defined firstly doesnt exists, create.
-    except:
-        os.mkdir(main_dir)
-        main_dir = main_dir+'/'+date_time
-        os.mkdir(main_dir)
-    
-    # Creating the file that will save the mean positions and variances.    
-    statistics_file = open(main_dir+'/statistics.txt','w+')
-    entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
-
-    # A copy of the parameters used in the simulation is made in the 
-    # simulation directory.
-    copy('common.cfg', main_dir+'/parameters.txt')
-
-    start_time = time.time() # Start time of the simulation.
-    L = qwalk.Lattice(dimension,size) # Lattice.
-    S = qwalk.FermionShiftOperator(L,f) # Shift Operator.
-    c = qwalk.FermionCoin(thetas)   # Coin operators.
-    W = qwalk.Walker(coin_init_state,L) # Walker.
-
-    # Loop until the border of the lattice is reached.
-    for t in range(0,size//2):
-
-        ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
-        entang_entrop = statistics.entanglement_entropy(W.density,L)
-
-        statistics_file.write('%f\t' %t)
-        statistics_file.writelines('%f\t' %c for c in mp[0])
-        statistics_file.writelines('%f\t' %c for c in sq[0])
-        statistics_file.write('\n')
-        
-        entanglement_file.writelines('%f\t' %c for c in entang_entrop)
-        entanglement_file.write('\n')
-        
-        # For every time step a file to save the probabilities is created.
-        prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
-        
-        # We save the probabilities for a given dimension in on line, the next
-        # in the next line, and so forth.
-        for i in range(0,dimension):
-            prob_dist_file.writelines('%f\t' %c for c in ps[i])
-            prob_dist_file.write('\n')
-
-        W.walk(c,S,L,False) # A time step walk.
-#        print(np.trace(W.density.todense()))
-        print('time: ',t, end='\r')
-
-    prob_dist_file.close()
-    statistics_file.close()
-
-    print("--- %s seconds ---" % (time.time() - start_time))
-    return(main_dir)
-
-def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
+def gEQWalk(dimension, size, f, thetas, coin_init_state, q, trace_dist):
 
     ''' Function that simulates the elephant quantum walk. The parameters are
         the dimension of the lattice, its size, f is the fermion, thetas the
@@ -221,7 +150,7 @@ def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
     
     # Main directory in which the simulation directory will be saved,
     # separated by qwalk type and dimension.
-    main_dir = 'data/'+str(dimension)+'D_Eqwalks'
+    main_dir = 'data/'+str(dimension)+'D_gEQWalks'
     # Date and time to name the simulation directory.
     date_time = datetime.now().strftime('%d%m%Y-%H:%M:%S')
 
@@ -235,53 +164,79 @@ def elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p):
         main_dir = main_dir+'/'+date_time
         os.mkdir(main_dir)
     
-    # Creating the file in which the statistics will be saved.
-    statistics_file = open(main_dir+'/statistics.txt','w+')
-    entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
-
     # Copyng the parameters used in to the simulation directory.
-    copy('elephant.cfg', main_dir+'/parameters.txt')
-
+    copy('gEQW.cfg', main_dir+'/parameters.txt')
     start_time = time.time() # Start time of the simulation.
-    L = qwalk.Lattice(dimension,size) # Lattice. 
-    c = qwalk.FermionCoin(thetas)   # Coin operators.
-    W = qwalk.ElephantWalker(coin_init_state,L,q,p) # Walker.
+    L = gEQWalks.Lattice(dimension,size) # Lattice. 
+    c = gEQWalks.FermionCoin(thetas)   # Coin operators.
+
+    if trace_dist == False:
+
+        # Creating the file in which the statistics will be saved.
+        statistics_file = open(main_dir+'/statistics.txt','w+')
+        entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
     
-    for t in range(0,size//2):
+        W = gEQWalks.Walker(coin_init_state,L,q) # Walker.
+
+        for t in range(0,W.tmax):
  
-        ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
-        entang_entrop = statistics.entanglement_entropy(W.density,L)
+            ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
+            entang_entrop = statistics.entanglement_entropy(W.density,L)
 
-        statistics_file.write('%f\t' %t)
-        statistics_file.writelines('%f\t' %c for c in mp[0])
-        statistics_file.writelines('%f\t' %c for c in sq[0])
-        statistics_file.write('\n')
+            statistics_file.write('%f\t' %t)
+            statistics_file.writelines('%f\t' %c for c in mp[0])
+            statistics_file.writelines('%f\t' %c for c in sq[0])
+            statistics_file.write('\n')
 
-        entanglement_file.writelines('%f\t' %c for c in entang_entrop)
-        entanglement_file.write('\n')
+            entanglement_file.writelines('%f\t' %c for c in entang_entrop)
+            entanglement_file.write('\n')
         
-        # For every time step a file to save the probabilities is created.
-        prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
+            # For every time step a file to save the probabilities is created.
+            prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
 
-        # We save the probabilities for a given dimension in on line, the next
-        # in the next line, and so forth.
-        for i in range(0,dimension):
-            prob_dist_file.writelines('%f\t' %c for c in ps[i])
-            prob_dist_file.write('\n')
+            # We save the probabilities for a given dimension in on line, the next
+            # in the next line, and so forth.
+            for i in range(0,dimension):
+                prob_dist_file.writelines('%f\t' %c for c in ps[i])
+                prob_dist_file.write('\n')
 
-        W.walk(c,L,f,t) # A time step walk.
-#        print(np.trace(W.density.todense()))
-        print('time: ',t,end = '\r')
+            W.walk(c,L,f,t) # A time step walk.
+#           print(np.trace(W.density.todense()))
+            print('time: ',t,end = '\r')
      
-    prob_dist_file.close()
-    statistics_file.close()
+        prob_dist_file.close()
+        statistics_file.close()
+
+    else:
+
+        trace_dist_file = open(main_dir+'/trace_distance.txt','w+')
+
+        coin_init_state = 1
+        for i in range(0,dimension):
+
+            rho_coin_state = np.kron(rho_coin_state,f.up)
+            sigma_coin_state = np.kron(sigma_coin_state,f.down)
+
+        W_rho = gEQWalks.Walker(rho_coin_state,L,q) # Walker.
+        W_sigma = gEQWalks.Walker(sigma_coin_state,L,q)
+        W_sigma.displacements_vector = W_rho.displacements_vector
+
+        for t in range(0,W_rho.tmax):
+
+            W_rho.walk(c,L,f,t) # A time step walk.
+            W_sigma.walk(c,L,f,t)
+
+            trace_dist = statistics.trace_dist(W_rho.density,W_sigma.density,L)
+            trace_dist_file.write('%f\t %f\n' %t %trace_dist)
+
+            print('time: ',t,end = '\r')
+
+        trace_dist_file.close()
 
     print("--- %s seconds ---" % (time.time() - start_time))
-    return(main_dir)
+    return(main_dir,W.tmax)
 
-qwalk_type = input('Enter the quantum walk type (common, elephant): ')
-
-params = [x.split(' ')[2:] for x in open(qwalk_type+'.cfg').read().splitlines()]
+params = [x.split(' ')[2:] for x in open('gEQW.cfg').read().splitlines()]
 dimension = int(params[0][0])
 size = int(params[1][0])
 
@@ -291,10 +246,10 @@ coin_init_state = 1
 for i in range(0,dimension):
     coin_type = params[2][i]
     if 'fermion' == coin_type:
-        f = qwalk.FermionSpin()
+        f = gEQWalks.FermionSpin()
     thetas.append(float(params[3][i]))
 
-for i in range (0,dimension,2):
+for i in range (0,dimension,2): # COLOCAR NA FUNÇAO DE SIMULACAO
 
     bloch_angle = float(params[4][i])
     phase_angle = float(params[4][i+1])
@@ -302,7 +257,7 @@ for i in range (0,dimension,2):
     rad_pa = (np.pi/180)*phase_angle
     up_state = np.cos(rad_ba)*f.up
     down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down 
-    coin_init_state = np.kron(coin_init_state,up_state + down_state)
+    coin_init_state = np.kron(coin_init_state,up_state + down_state) 
 
 thetas = np.array(thetas)
 
@@ -311,23 +266,12 @@ try:
 except:
     pass    
     
-if qwalk_type == 'common': 
-
-    parameters = [dimension, size, thetas, bloch_angle, phase_angle]
-    thetas = (np.pi/180)*thetas
-    main_dir = common_qwalk(dimension,size,f,thetas,coin_init_state)
-    plot(main_dir, parameters)
-
-else:
-
-    q = []
-    p = []
+q = []
     
-    for i in range (0,dimension):
-        q.append(float(params[5][i]))
-        p.append(float(params[6][i]))
+for i in range (0,dimension):
+    q.append(float(params[5][i]))
 
-    parameters = [dimension, size, thetas, bloch_angle, phase_angle, q, p]
-    thetas = (np.pi/180)*thetas
-    main_dir = elephant_qwalk(dimension,size,f,thetas,coin_init_state,q,p)
-    plot(main_dir, parameters)
+parameters = [dimension, size, thetas, bloch_angle, phase_angle, q]
+thetas = (np.pi/180)*thetas
+main_dir,tmax = gEQWalk(dimension, size, f, thetas, coin_init_state, q, False)
+plot(main_dir, parameters, tmax)
