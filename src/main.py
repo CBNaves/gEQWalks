@@ -18,7 +18,8 @@ def plot(main_dir, parameters, tmax):
 
     # Conditional for the qwalk type, so that we include the extra parameters 
     # in the title in the case of the elephant.
-    dimension,size,thetas,bloch_angle,phase_angle,q = parameters
+    dimension,size,thetas,bloch_angle,phase_angle,q,trace_dist = parameters
+
     str_q = '['
     for i in q:
         if i > 10**(3): str_q = str_q + '\infty ,'
@@ -135,9 +136,33 @@ def plot(main_dir, parameters, tmax):
 
     prob_dist_file.close()
     statistics_file.close()
-    entanglement_file.close()     
+    entanglement_file.close()
 
-def gEQWalk(dimension, size, f, thetas, coin_init_state, q, trace_dist):
+    if trace_dist:
+
+        trace_dist_vector = []
+        trace_dist_file = open(main_dir+'/trace_distance.txt','r')
+     
+        for x in trace_dist_file.readlines():
+            for y in x.split('\n'):
+                if y != '': trace_dist_vector.append(float(y))
+
+        trace_dist_file.close()
+
+        fig = plt.figure(figsize=(16,9),dpi=200) 
+        plt.title(title_str,fontsize=16)
+        k,= plt.plot(time_steps,trace_dist_vector,lw=2,label='Trace Distance')
+        plt.grid(linestyle='--')
+        plt.xlabel(r'$t$',fontsize=16)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.ylabel(r'$D(\rho,\rho^{\perp})$',fontsize=16)
+        plt.legend(handles=[k],fontsize=14)
+        save_str = main_dir+'/trace_distance'        
+        plt.savefig(save_str,bbox_inches='tight')
+        plt.clf()
+            
+def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
 
     ''' Function that simulates the elephant quantum walk. The parameters are
         the dimension of the lattice, its size, f is the fermion, thetas the
@@ -170,70 +195,70 @@ def gEQWalk(dimension, size, f, thetas, coin_init_state, q, trace_dist):
     L = gEQWalks.Lattice(dimension,size) # Lattice. 
     c = gEQWalks.FermionCoin(thetas)   # Coin operators.
 
-    if trace_dist == False:
+    # Creating the file in which the statistics will be saved.
+    statistics_file = open(main_dir+'/statistics.txt','w+')
+    entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
 
-        # Creating the file in which the statistics will be saved.
-        statistics_file = open(main_dir+'/statistics.txt','w+')
-        entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
-    
-        W = gEQWalks.Walker(coin_init_state,L,q) # Walker.
+    coin_init_state = 1
+    ort_coin_state = 1
 
-        for t in range(0,W.tmax):
- 
-            ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
-            entang_entrop = statistics.entanglement_entropy(W.density,L)
+    for i in range(0,dimension):
+        rad_ba = (np.pi/180)*bloch_angle[i]
+        rad_pa = (np.pi/180)*phase_angle [i] 
+        if 'fermion' == coin_type[i]:
+            f = gEQWalks.FermionSpin()
+            up_state = np.cos(rad_ba)*f.up
+            down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down 
+            coin_init_state = np.kron(coin_init_state,up_state + down_state)
+            if trace_dist:
+                o_up_state = -1*np.exp(-1j*rad_pa)*np.sin(rad_ba)*f.up
+                o_down_state = np.cos(rad_ba)*f.down 
+                ort_coin_state = np.kron(ort_coin_state,o_up_state + o_down_state)
 
-            statistics_file.write('%f\t' %t)
-            statistics_file.writelines('%f\t' %c for c in mp[0])
-            statistics_file.writelines('%f\t' %c for c in sq[0])
-            statistics_file.write('\n')
+    W = gEQWalks.Walker(coin_init_state,L,q) # Walker.
 
-            entanglement_file.writelines('%f\t' %c for c in entang_entrop)
-            entanglement_file.write('\n')
-        
-            # For every time step a file to save the probabilities is created.
-            prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
-
-            # We save the probabilities for a given dimension in on line, the next
-            # in the next line, and so forth.
-            for i in range(0,dimension):
-                prob_dist_file.writelines('%f\t' %c for c in ps[i])
-                prob_dist_file.write('\n')
-
-            W.walk(c,L,f,t) # A time step walk.
-#           print(np.trace(W.density.todense()))
-            print('time: ',t,end = '\r')
-     
-        prob_dist_file.close()
-        statistics_file.close()
-
-    else:
-
+    if trace_dist: 
         trace_dist_file = open(main_dir+'/trace_distance.txt','w+')
+        W_orthogonal = gEQWalks.Walker(ort_coin_state,L,q)
+        W_orthogonal.displacements_vector = W.displacements_vector    
 
-        coin_init_state = 1
+    for t in range(0,W.tmax):
+ 
+        ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
+        entang_entrop = statistics.entanglement_entropy(W.density,L)
+
+        statistics_file.write('%f\t' %t)
+        statistics_file.writelines('%f\t' %c for c in mp[0])
+        statistics_file.writelines('%f\t' %c for c in sq[0])
+        statistics_file.write('\n')
+
+        entanglement_file.writelines('%f\t' %c for c in entang_entrop)
+        entanglement_file.write('\n')
+        
+        # For every time step a file to save the probabilities is created.
+        prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
+
+        # We save the probabilities for a given dimension in on line, the next
+        # in the next line, and so forth.
         for i in range(0,dimension):
+            prob_dist_file.writelines('%f\t' %c for c in ps[i])
+            prob_dist_file.write('\n')
 
-            rho_coin_state = np.kron(rho_coin_state,f.up)
-            sigma_coin_state = np.kron(sigma_coin_state,f.down)
+        if trace_dist:
 
-        W_rho = gEQWalks.Walker(rho_coin_state,L,q) # Walker.
-        W_sigma = gEQWalks.Walker(sigma_coin_state,L,q)
-        W_sigma.displacements_vector = W_rho.displacements_vector
+            td = statistics.trace_distance(W.density,W_orthogonal.density,L)
+            trace_dist_file.write('%f\n' %td)
+            W_orthogonal.walk(c,L,f,t)
 
-        for t in range(0,W_rho.tmax):
-
-            W_rho.walk(c,L,f,t) # A time step walk.
-            W_sigma.walk(c,L,f,t)
-
-            trace_dist = statistics.trace_dist(W_rho.density,W_sigma.density,L)
-            trace_dist_file.write('%f\t %f\n' %t %trace_dist)
-
-            print('time: ',t,end = '\r')
-
-        trace_dist_file.close()
-
+        W.walk(c,L,f,t) # A time step walk.
+#       print(np.trace(W.density.todense()))
+        print('time: ',t,end = '\r')
+     
+    prob_dist_file.close()
+    statistics_file.close()
+    if trace_dist: trace_dist_file.close()
     print("--- %s seconds ---" % (time.time() - start_time))
+
     return(main_dir,W.tmax)
 
 params = [x.split(' ')[2:] for x in open('gEQW.cfg').read().splitlines()]
@@ -241,23 +266,18 @@ dimension = int(params[0][0])
 size = int(params[1][0])
 
 thetas = []
-coin_init_state = 1
+coin_type = []
+bloch_angle = []
+phase_angle = []
 
 for i in range(0,dimension):
-    coin_type = params[2][i]
-    if 'fermion' == coin_type:
-        f = gEQWalks.FermionSpin()
+    coin_type.append(params[2][i])
     thetas.append(float(params[3][i]))
 
-for i in range (0,dimension,2): # COLOCAR NA FUNÇAO DE SIMULACAO
+for i in range (0,dimension,2):
 
-    bloch_angle = float(params[4][i])
-    phase_angle = float(params[4][i+1])
-    rad_ba = (np.pi/180)*bloch_angle
-    rad_pa = (np.pi/180)*phase_angle
-    up_state = np.cos(rad_ba)*f.up
-    down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down 
-    coin_init_state = np.kron(coin_init_state,up_state + down_state) 
+    bloch_angle.append(float(params[4][i]))
+    phase_angle.append(float(params[4][i+1]))
 
 thetas = np.array(thetas)
 
@@ -271,7 +291,11 @@ q = []
 for i in range (0,dimension):
     q.append(float(params[5][i]))
 
-parameters = [dimension, size, thetas, bloch_angle, phase_angle, q]
+trace_dist = params[6][0]
+if trace_dist == 'False': trace_dist = False
+if trace_dist == 'True': trace_dist = True
+
+parameters = [dimension, size, thetas, bloch_angle, phase_angle, q,trace_dist]
 thetas = (np.pi/180)*thetas
-main_dir,tmax = gEQWalk(dimension, size, f, thetas, coin_init_state, q, False)
+main_dir,tmax = gEQWalk(dimension, size, coin_type, thetas, bloch_angle, phase_angle, q, trace_dist)
 plot(main_dir, parameters, tmax)

@@ -228,7 +228,7 @@ def trace_distance(rho,sigma,lattice):
     size = lattice.size
     dense_rho = rho.todense() # Dense density function.
     dense_rho = np.array(dense_rho)
-    dense_sigma = rho.todense() 
+    dense_sigma = sigma.todense() 
     dense_sigma = np.array(dense_sigma)
    
     a = size**dimension
@@ -238,10 +238,13 @@ def trace_distance(rho,sigma,lattice):
 
     coin_rho = np.trace(reshaped_rho,axis1=0,axis2=2)
     coin_sigma = np.trace(reshaped_sigma,axis1=0,axis2=2)
-    
+
     dif_density = coin_rho - coin_sigma
     dif_eigen_val, dif_eigen_vec = np.linalg.eig(dif_density)
     dif_eigen_val = np.real(dif_eigen_val)
 
-    trace_dist = (1/2)*sum(dif_eigen_val)
+    trace_dist = 0 
+    for i in dif_eigen_val:
+        trace_dist = trace_dist + (1/2)*np.linalg.norm(i)
+
     return trace_dist    
