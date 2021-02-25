@@ -1,6 +1,7 @@
 import numpy as np
 from itertools import product
 from scipy import sparse
+import gc 
 
 def DisplacementsGenerator(q,size):
 
@@ -23,7 +24,7 @@ def DisplacementsGenerator(q,size):
             max_index = i-1
             break
 
-    return max_index, np.array(displacements_vector)
+    return max_index, displacements_vector
 
 def qExponential(q,x):
 
@@ -104,7 +105,7 @@ def position_ket(position,size):
         from -N/2 to N/2, N+1 beeing the number of sites.
     '''
 
-    pos_ket = sparse.lil_matrix((size,1),dtype=complex)
+    pos_ket = sparse.lil_matrix((size,1),dtype=np.single)
     pos_ket[position + (size//2),0] = 1
    
     return pos_ket
@@ -134,7 +135,7 @@ class FermionCoin:
             self.coin = np.kron(self.coin,coin)
 
         # Change the coin matrix to a sparse matrix.
-        self.coin = sparse.lil_matrix(self.coin,dtype='complex')
+        self.coin = sparse.lil_matrix(self.coin,dtype=np.csingle)
             
     def toss(self, density, lattice):
         
@@ -142,7 +143,7 @@ class FermionCoin:
         # position space with the coin op.
         dimension = lattice.dimension
         size = lattice.size
-        pos_identity = sparse.identity(size**dimension,dtype='complex')
+        pos_identity = sparse.identity(size**dimension,dtype=np.single)
         coin_toss = sparse.kron(pos_identity,self.coin,format='lil')
 
         # (I \otimes C)\rho(I \otimes C\dagger)
@@ -157,9 +158,9 @@ class FermionCoin:
         dimension = lattice.dimension
 
         entangling_op = np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]])
-        entangling_op = sparse.lil_matrix(entangling_op,dtype='complex')
+        entangling_op = sparse.lil_matrix(entangling_op,dtype=np.csingle)
         entangling_toss = np.dot(self.coin,entangling_op)
-        pos_identity = sparse.identity(size**dimension,dtype='complex')
+        pos_identity = sparse.identity(size**dimension,dtype=np.single)
         entangling_toss = sparse.kron(pos_identity,entangling_toss,format='lil')
         density = np.dot(entangling_toss,density)
         return np.dot(density,np.conj(entangling_toss.T))
@@ -287,14 +288,15 @@ class Walker:
         for i in range (0,dimension-1):
             pos_state = sparse.kron(pos_state,position_ket(0,size),format='lil')
 
-        spin_state = sparse.lil_matrix(spin_init_state,dtype='complex')
+        spin_state = sparse.lil_matrix(spin_init_state,dtype=np.csingle)
         # |psi> = |pos>|spin>.
         state = sparse.kron(pos_state,spin_state,format='lil')
         # \rho = |psi><psi|.
         self.density = np.dot(state,np.conj((state).T))   
         self.q = q
-        self.displacements_vector = []
         self.tmax = size//2
+        
+        displacements_vector = []
 
         for i in range(0,dimension):
 
@@ -303,12 +305,23 @@ class Walker:
                 max_index = size//2 
             else: 
                 max_index, displacements = DisplacementsGenerator(q[i],size)
-                
-            self.displacements_vector.append(displacements)
-            self.tmax = min(self.tmax,max_index)
 
-        self.displacements_vector = np.array(self.displacements_vector)
-                
+            displacements_vector.append(displacements)
+
+            self.tmax = min(self.tmax,max_index)
+            
+            if i != 0:
+                past_len = np.size(displacements_vector[i-1])
+                act_len = np.size(displacements_vector[i])
+                if past_len < act_len:
+                    for j in range(0,act_len-past_len):
+                        displacements_vector[i-1].append(0)
+                elif past_len > act_len:
+                    for j in range(0,past_len-act_len):
+                        displacements_vector[i].append(0)
+        
+        self.displacements_vector = np.array(displacements_vector)
+
     def walk(self, coin, lattice, fermion, t):
         
         ''' Method that makes the walker walk in one time step. The first 
@@ -324,5 +337,6 @@ class Walker:
         shift_operator = FermionShiftOperator(lattice,fermion,displacements)
         # E(\rho) = S\rhoS\dagger
         self.density = np.dot(shift_operator,self.density)    
-        self.density = np.dot(self.density,np.conj((shift_operator).T)) 
-        
+        self.density = np.dot(self.density,np.conj((shift_operator).T))
+        del(shift_operator)
+        gc.collect()        

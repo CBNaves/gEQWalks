@@ -7,6 +7,7 @@ import os
 from scipy import optimize
 from datetime import datetime
 from shutil import copy
+import gc
 
 def plot(main_dir, parameters, tmax):
 
@@ -227,13 +228,21 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
         ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
         entang_entrop = statistics.entanglement_entropy(W.density,L)
 
+        statistics_file = open(main_dir+'/statistics.txt','a')
         statistics_file.write('%f\t' %t)
         statistics_file.writelines('%f\t' %c for c in mp[0])
         statistics_file.writelines('%f\t' %c for c in sq[0])
         statistics_file.write('\n')
+        statistics_file.close()
+        del(statistics_file)
+        gc.collect()
 
+        entanglement_file = open(main_dir+'/entanglement_entropy.txt','a')
         entanglement_file.writelines('%f\t' %c for c in entang_entrop)
         entanglement_file.write('\n')
+        entanglement_file.close()
+        del(entanglement_file)
+        gc.collect()
         
         # For every time step a file to save the probabilities is created.
         prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
@@ -241,22 +250,33 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
         # We save the probabilities for a given dimension in on line, the next
         # in the next line, and so forth.
         for i in range(0,dimension):
+
             prob_dist_file.writelines('%f\t' %c for c in ps[i])
             prob_dist_file.write('\n')
 
+        prob_dist_file.close()
+        del(prob_dist_file)
+        gc.collect()
+
+        del(ps,mp,msq,sq)
+        del(entang_entrop)
+        gc.collect()
+
         if trace_dist:
 
+            trace_dist_file = open(main_dir+'/trace_distance.txt','a')
             td = statistics.trace_distance(W.density,W_orthogonal.density,L)
             trace_dist_file.write('%f\n' %td)
+            trace_dist_file.close()
             W_orthogonal.walk(c,L,f,t)
+            del(td)
+            gc.collect()
 
         W.walk(c,L,f,t) # A time step walk.
+        gc.collect()
 #       print(np.trace(W.density.todense()))
         print('time: ',t,end = '\r')
-     
-    prob_dist_file.close()
-    statistics_file.close()
-    if trace_dist: trace_dist_file.close()
+
     print("--- %s seconds ---" % (time.time() - start_time))
 
     return(main_dir,W.tmax)
@@ -274,9 +294,9 @@ for i in range(0,dimension):
     coin_type.append(params[2][i])
     thetas.append(float(params[3][i]))
 
-for i in range (0,dimension,2):
+for i in range (0,2*dimension,2):
 
-    bloch_angle.append(float(params[4][i]))
+    bloch_angle.append(float(params[4][i])) 
     phase_angle.append(float(params[4][i+1]))
 
 thetas = np.array(thetas)
