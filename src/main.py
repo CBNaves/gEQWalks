@@ -234,15 +234,11 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
         statistics_file.writelines('%f\t' %c for c in sq[0])
         statistics_file.write('\n')
         statistics_file.close()
-        del(statistics_file)
-        gc.collect()
 
         entanglement_file = open(main_dir+'/entanglement_entropy.txt','a')
         entanglement_file.writelines('%f\t' %c for c in entang_entrop)
         entanglement_file.write('\n')
         entanglement_file.close()
-        del(entanglement_file)
-        gc.collect()
         
         # For every time step a file to save the probabilities is created.
         prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
@@ -255,12 +251,6 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
             prob_dist_file.write('\n')
 
         prob_dist_file.close()
-        del(prob_dist_file)
-        gc.collect()
-
-        del(ps,mp,msq,sq)
-        del(entang_entrop)
-        gc.collect()
 
         if trace_dist:
 
@@ -269,11 +259,8 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
             trace_dist_file.write('%f\n' %td)
             trace_dist_file.close()
             W_orthogonal.walk(c,L,f,t)
-            del(td)
-            gc.collect()
 
         W.walk(c,L,f,t) # A time step walk.
-        gc.collect()
 #       print(np.trace(W.density.todense()))
         print('time: ',t,end = '\r')
 

@@ -338,5 +338,3 @@ class Walker:
         # E(\rho) = S\rhoS\dagger
         self.density = np.dot(shift_operator,self.density)    
         self.density = np.dot(self.density,np.conj((shift_operator).T))
-        del(shift_operator)
-        gc.collect()        
