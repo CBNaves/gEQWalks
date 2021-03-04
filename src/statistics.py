@@ -14,12 +14,12 @@ def position_statistics(density_function,lattice,coin):
     dimension = lattice.dimension
     size = lattice.size
 
-    positions = [] # List to save every position n-tuple.
-    for i in lattice.pos_basis:
-        positions.append(i[0])
+#    positions = [] # List to save every position n-tuple.
+#    for i in lattice.pos_eig_val:
+#        positions.append(i[0])
         
-    positions = np.array(positions)
-  
+#    positions = np.array(positions)
+    positions = np.array(lattice.pos_eig_val)
     # Array that stores the mean position in the lattice in every direction. 
     mean_pos = np.zeros((1,dimension))
     # Array that stores the mean squared position in the lattice ''. 

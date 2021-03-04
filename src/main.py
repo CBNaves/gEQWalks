@@ -193,8 +193,8 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
     # Copyng the parameters used in to the simulation directory.
     copy('gEQW.cfg', main_dir+'/parameters.txt')
     start_time = time.time() # Start time of the simulation.
-    L = gEQWalks.Lattice(dimension,size) # Lattice. 
-    c = gEQWalks.FermionCoin(thetas)   # Coin operators.
+    L = gEQWalks.Lattice(dimension,size) # Lattice.
+    c = gEQWalks.FermionCoin(thetas,L)   # Coin operators.
 
     # Creating the file in which the statistics will be saved.
     statistics_file = open(main_dir+'/statistics.txt','w+')
@@ -261,48 +261,49 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
             W_orthogonal.walk(c,L,f,t)
 
         W.walk(c,L,f,t) # A time step walk.
-#       print(np.trace(W.density.todense()))
+#        print(np.trace(W.density.todense()))
         print('time: ',t,end = '\r')
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
     return(main_dir,W.tmax)
 
-params = [x.split(' ')[2:] for x in open('gEQW.cfg').read().splitlines()]
-dimension = int(params[0][0])
-size = int(params[1][0])
+for i in range(0,5):
 
-thetas = []
-coin_type = []
-bloch_angle = []
-phase_angle = []
+    params = [x.split(' ')[2:] for x in open('gEQW'+str(i)+'.cfg').read().splitlines()]
+    dimension = int(params[0][0])
+    size = int(params[1][0])
+    thetas = []
+    coin_type = []
+    bloch_angle = []
+    phase_angle = []
 
-for i in range(0,dimension):
-    coin_type.append(params[2][i])
-    thetas.append(float(params[3][i]))
+    for i in range(0,dimension):
+        coin_type.append(params[2][i])
+        thetas.append(float(params[3][i]))
 
-for i in range (0,2*dimension,2):
+    for i in range (0,2*dimension,2):
 
-    bloch_angle.append(float(params[4][i])) 
-    phase_angle.append(float(params[4][i+1]))
+        bloch_angle.append(float(params[4][i])) 
+        phase_angle.append(float(params[4][i+1]))
 
-thetas = np.array(thetas)
+    thetas = np.array(thetas)
 
-try:
-    os.mkdir('data')
-except:
-    pass    
+    try:
+        os.mkdir('data')
+    except:
+        pass    
     
-q = []
+    q = []
     
-for i in range (0,dimension):
-    q.append(float(params[5][i]))
+    for i in range (0,dimension):
+        q.append(float(params[5][i]))
 
-trace_dist = params[6][0]
-if trace_dist == 'False': trace_dist = False
-if trace_dist == 'True': trace_dist = True
+    trace_dist = params[6][0]
+    if trace_dist == 'False': trace_dist = False
+    if trace_dist == 'True': trace_dist = True
 
-parameters = [dimension, size, thetas, bloch_angle, phase_angle, q,trace_dist]
-thetas = (np.pi/180)*thetas
-main_dir,tmax = gEQWalk(dimension, size, coin_type, thetas, bloch_angle, phase_angle, q, trace_dist)
-plot(main_dir, parameters, tmax)
+    parameters = [dimension, size, thetas, bloch_angle, phase_angle, q,trace_dist]
+    thetas = (np.pi/180)*thetas
+    main_dir,tmax = gEQWalk(dimension, size, coin_type, thetas, bloch_angle,    phase_angle, q, trace_dist)
+    plot(main_dir, parameters, tmax)

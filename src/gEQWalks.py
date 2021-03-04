@@ -17,10 +17,10 @@ def DisplacementsGenerator(q,size):
         displacements_vector.append(dx)
         
         sum_dx = sum_dx + dx
-        if sum_dx == size:
+        if sum_dx == size//2:
             max_index = i
             break
-        elif sum_dx > size:
+        elif sum_dx > size//2:
             max_index = i-1
             break
 
@@ -52,9 +52,9 @@ class Lattice:
         self.size = size
         # Defines a list where every element is a list of position basis state 
         # with its eigenvalues, e.g. (x,y,z).
-        self.pos_basis = matrix_scan([],size,dimension,dimension,[])
+        self.pos_eig_val, self.pos_eig_vect = matrix_scan([],size,dimension,dimension,[],[])
 
-def matrix_scan(a,size,dimension,dimension_f,pos):    
+def matrix_scan(a,size,dimension,dimension_f,eig_pos,eig_vect):    
   
     ''' Matrix_scan is a recursive function that passes through every position 
     in the n-dimensional square lattice, to define the position basis. The re-
@@ -75,8 +75,7 @@ def matrix_scan(a,size,dimension,dimension_f,pos):
         for i in range(-(size//2),(size//2) +1):
             a.append(i)
             if dimension != 1: 
-                pos = matrix_scan(a,size,dimension-1,dimension_f,pos)
-                    
+                pos = matrix_scan(a,size,dimension-1,dimension_f,eig_pos,eig_vect)
             # When the dimension parameter is equal to one, this means that we 
             # already have the n-tuple of positions and we can define the state
             # vector to that position.
@@ -89,11 +88,12 @@ def matrix_scan(a,size,dimension,dimension_f,pos):
                 # A copy has to be made to not modify the n-tuple in pos when 
                 # we pop.                  
                 b = a.copy()  
-                pos.append([b,pos_state])                                     
+                eig_pos.append(b)
+                eig_vect.append(pos_state)
        
             a.pop(dimension_f-dimension)
               
-    return pos
+    return eig_pos, eig_vect
 
         
 def position_ket(position,size):
@@ -118,12 +118,14 @@ class FermionCoin:
     with the possible fermion spin states (up and down). 
     '''
     
-    def __init__(self,coin_parameters):
+    def __init__(self,coin_parameters,lattice):
 
         ''' The parameter to pass must be a list with the theta angles that 
         defines every coin operator, associated with all directions. 
         '''
-        
+        dimension = lattice.dimension
+        size = lattice.size
+
         self.coin_parameters = coin_parameters
         self.coin = 1
         #  Takes the tensor product of the coins operators in the total spin 
@@ -136,18 +138,13 @@ class FermionCoin:
 
         # Change the coin matrix to a sparse matrix.
         self.coin = sparse.lil_matrix(self.coin,dtype=np.csingle)
-            
-    def toss(self, density, lattice):
-        
-        # First we have to take the tensor product of the identity on the 
-        # position space with the coin op.
-        dimension = lattice.dimension
-        size = lattice.size
         pos_identity = sparse.identity(size**dimension,dtype=np.single)
-        coin_toss = sparse.kron(pos_identity,self.coin,format='lil')
-
+        self.coin = sparse.kron(pos_identity,self.coin,format='lil')
+            
+    def toss(self, state):
+        
         # (I \otimes C)\rho(I \otimes C\dagger)
-        return np.dot(np.dot(coin_toss,density),np.conj(coin_toss.T))
+        return np.dot(self.coin,state)
     
     def entangling_toss2D(self,density,lattice):
     
@@ -187,84 +184,6 @@ class BosonSpin:
         self.up = np.array([[1],[0],[0]])   # \ket{up}
         self.zero = np.array([[0],[1],[0]]) # \ket{0}
         self.down = np.array([[0],[0],[1]]) # \ket{down}
-
-def FermionShiftOperator(lattice,fermion,j):
-    
-    ''' Function that returns the fermion shift operator to the elephant quantum
-        walk. 
-    '''
-        
-    ''' The first parameter must be the lattice, the second the fermion, the 
-        third the time in which the shift operator will be defined and the 
-        last the deltas defining the shift kraus operator. 
-    '''
-
-    dimension = lattice.dimension
-    size = lattice.size
-    pos_basis = lattice.pos_basis
-
-    f = [fermion.up,fermion.down]        
-    shift_dimension = (size**dimension)*(2**dimension)        
-
-    # Defines the type and size of the fermion shift operator.
-    shift = sparse.lil_matrix((shift_dimension,shift_dimension),dtype=complex)      
-            
-    ''' In the below loop we take all possible configurations of fermion 
-    spin states, 2^(dimension). We associate to a binary number (string) 
-    every configuration, with 0 to a spin up and 1 to a spin down. So the 
-    up,up,up state will be associated with 000, while up, down, up is asso-
-    ciated with 010.
-    '''  
-        
-    for i in range(0,2**dimension):
-    
-        # Position part of the shift operator.
-        pos_shift = sparse.lil_matrix((size**(dimension),size**(dimension)),dtype=complex)
-        # Binary number associated with the configuration.
-        b = bin(i)[2:]
- 
-        # Here we attach zeros to the string to match the number of 
-        # spins.
-        if len(b) < dimension: 
-            for k in range(0,(dimension-len(b))):
-                b = '0' + b
-
-        # def. spin state, e.g. |up>\otimes|\down>... 
-        spin = f[int(b[0])] 
-        for k in b[1:]:
-            spin = np.kron(spin,f[int(k)])
-
-        # Loop that go through every position basis element.
-        for pos in pos_basis:
-
-            old_pos = pos[1]    # Old position ket.
-            new_pos = 1 # Scalar for the initial tensor product.
-
-            for x in range(0,dimension):
-                old_p = pos[0][x]   # Old position.
-                # l_j -> l_j + (-1)**(spin)*delta^j_t
-                new_p = old_p + (-1)**(int(b[x]))*j[x] 
-                        
-                # Conditional on the borders, imposing ciclic condi-
-                # tions, maintaining the unitarity.
-                if (new_p) <= (size//2) and new_p >= -(size//2): 
-                    npk = position_ket(new_p,size)      
-                    new_pos = sparse.kron(new_pos,npk)
-                                
-                else:
-                    npk = position_ket(new_p - (new_p/np.linalg.norm(new_p))*size,size)
-                    new_pos = sparse.kron(new_pos,npk)
-                        
-            # Summing the position shift operator part.          
-            pos_shift = pos_shift + np.dot(new_pos,(old_pos.T))
-
-        # \ket{spin} --> \ket{\spin}\bra{\spin} (operator)    
-        spin_op = np.dot(spin,np.conj(spin.T))  
-
-        new_shift = sparse.kron(pos_shift,spin_op)
-        shift = shift + new_shift
-
-    return shift  
            
 class Walker:
     
@@ -290,15 +209,26 @@ class Walker:
 
         spin_state = sparse.lil_matrix(spin_init_state,dtype=np.csingle)
         # |psi> = |pos>|spin>.
-        state = sparse.kron(pos_state,spin_state,format='lil')
+        self.state = sparse.kron(pos_state,spin_state,format='lil')
         # \rho = |psi><psi|.
-        self.density = np.dot(state,np.conj((state).T))   
+        self.density = np.dot(self.state,np.conj((self.state).T))   
         self.q = q
         self.tmax = size//2
-        
+        self.spin_bins = []
+        self.max_pos = []
+
+        for j in range(0,2**dimension):
+            spin_str = bin(j)
+            spin_str = spin_str[2:]
+            while len(spin_str) < dimension:
+                    spin_str = '0' + spin_str
+            self.spin_bins.append(spin_str)
+
         displacements_vector = []
 
         for i in range(0,dimension):
+
+            self.max_pos.append(0)
 
             if q[i] == 0.5: 
                 displacements = np.ones(size)
@@ -329,12 +259,45 @@ class Walker:
         operator and the last the lattice.
         '''
         
-#        if entangling:
-#            self.density = coin.entangling_toss2D(self.density,lattice)
+        dimension = lattice.dimension
+        h_size = int(lattice.size//2)
+        pos_basis = np.array(lattice.pos_eig_val)
+        state = np.copy(self.state)
+        #        if entangling:
+#            self.state = coin.entangling_toss2D(self.state,lattice)
 #        else:
-        self.density = coin.toss(self.density,lattice)  
+        state = coin.toss(state)  
         displacements = self.displacements_vector[:,t]
-        shift_operator = FermionShiftOperator(lattice,fermion,displacements)
-        # E(\rho) = S\rhoS\dagger
-        self.density = np.dot(shift_operator,self.density)    
-        self.density = np.dot(self.density,np.conj((shift_operator).T))
+        
+        max_region = 0
+        for i in range(0,dimension):
+            self.max_pos[i] = self.max_pos[i] +  displacements[i]
+            max_region = max(max_region,self.max_pos[i])
+
+        max_region = int(max_region)
+
+        for pos in pos_basis[h_size-max_region:h_size+max_region+1,:]:
+
+            col_index = ((pos[0]+h_size)*(2*h_size))**(dimension-1) - 1
+#            for spin_bin in self.spin_bins:
+            for i in range(0,2**dimension):
+
+                spin_bin = self.spin_bins[i] 
+                pos_index = col_index
+                displaced_pos_index = col_index
+
+                for k in range(0,dimension):
+
+                    int_spin_str = int(spin_bin[k]) 
+                    displacement = (-1)**(int_spin_str+1)*displacements[k]
+                    pos_index = pos_index + 2*pos[k]
+
+                    if pos[k] + displacement <= h_size and pos[k] + displacement >= -h_size:
+                        displaced_pos_index = displaced_pos_index + 2*(pos[k]+ displacement)
+                    else:
+                        displaced_pos_index = displaced_pos_index - 2*pos[k]
+
+                self.state[2**(dimension)*h_size + pos_index +i] = state[2**(dimension)*h_size + displaced_pos_index + i]
+
+        self.density = sparse.kron(self.state,np.conj(self.state.T))
+ 
