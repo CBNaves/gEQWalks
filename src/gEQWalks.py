@@ -258,15 +258,16 @@ class Walker:
         parameter must be the coin(s) that will be used, the second the shift 
         operator and the last the lattice.
         '''
-        
+#        print(self.state,'\n')
         dimension = lattice.dimension
         h_size = int(lattice.size//2)
         pos_basis = np.array(lattice.pos_eig_val)
         state = np.copy(self.state)
+       
         #        if entangling:
 #            self.state = coin.entangling_toss2D(self.state,lattice)
 #        else:
-        state = coin.toss(state)  
+        state = coin.toss(state)
         displacements = self.displacements_vector[:,t]
         
         max_region = 0
@@ -276,28 +277,36 @@ class Walker:
 
         max_region = int(max_region)
 
-        for pos in pos_basis[h_size-max_region:h_size+max_region+1,:]:
+        min_ind = ((2*h_size)**(dimension))/2 - (2*h_size)**(dimension-1)*max_region
+        max_ind = ((2*h_size)**(dimension))/2 + (2*h_size)**(dimension-1)*max_region
 
-            col_index = ((pos[0]+h_size)*(2*h_size))**(dimension-1) - 1
-#            for spin_bin in self.spin_bins:
+        for pos in pos_basis[:,:]:
+            
             for i in range(0,2**dimension):
 
-                spin_bin = self.spin_bins[i] 
-                pos_index = col_index
-                displaced_pos_index = col_index
+                spin_bin = self.spin_bins[i]
+                pos_index = 0
+                displaced_index = 0
 
                 for k in range(0,dimension):
 
-                    int_spin_str = int(spin_bin[k]) 
+                    int_spin_str = int(spin_bin[k])
                     displacement = (-1)**(int_spin_str+1)*displacements[k]
-                    pos_index = pos_index + 2*pos[k]
+                    pos_index = pos_index + (2**(dimension)*(2*h_size)**(dimension-(k+1)))*(pos[k]+h_size)
 
                     if pos[k] + displacement <= h_size and pos[k] + displacement >= -h_size:
-                        displaced_pos_index = displaced_pos_index + 2*(pos[k]+ displacement)
+                        displaced_index = displaced_index + (2**(dimension)*(2*h_size)**(dimension-(k+1)))*(pos[k] + displacement + h_size)
                     else:
-                        displaced_pos_index = displaced_pos_index - 2*pos[k]
+                        displaced_index = displaced_index + (2**(dimension)*(2*h_size)**(dimension-(k+1)))*(-pos[k]+ h_size)
 
-                self.state[2**(dimension)*h_size + pos_index +i] = state[2**(dimension)*h_size + displaced_pos_index + i]
+                    if k == 0 and dimension>1:
+                        pos_index = pos_index + (2**dimension)*(pos[k]+h_size)
+                        displaced_index = displaced_index + (2**dimension)*(pos[k] + h_size)
+
+                displaced_index = int(displaced_index)
+                pos_index = int(pos_index)
+
+                self.state[pos_index + i,0] = state[displaced_index + i,0]
 
         self.density = sparse.kron(self.state,np.conj(self.state.T))
  

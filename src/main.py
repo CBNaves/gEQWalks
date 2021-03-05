@@ -259,16 +259,16 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
             trace_dist_file.write('%f\n' %td)
             trace_dist_file.close()
             W_orthogonal.walk(c,L,f,t)
-
-        W.walk(c,L,f,t) # A time step walk.
+        
 #        print(np.trace(W.density.todense()))
-        print('time: ',t,end = '\r')
+        print('time: ',t,end = '\r')       
+        W.walk(c,L,f,t) # A time step walk.
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
     return(main_dir,W.tmax)
 
-for i in range(0,5):
+for i in range(0,1):
 
     params = [x.split(' ')[2:] for x in open('gEQW'+str(i)+'.cfg').read().splitlines()]
     dimension = int(params[0][0])
