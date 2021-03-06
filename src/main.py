@@ -148,6 +148,18 @@ def plot(main_dir, parameters, tmax):
             for y in x.split('\n'):
                 if y != '': trace_dist_vector.append(float(y))
 
+        trace_dist_derivate = []
+        for i in time_steps[:]:
+            j = int(i)
+            if i == 0:
+                derivate = (trace_dist_vector[j+1] - trace_dist_vector[j])
+            elif i == time_steps[-1]:
+                derivate = (trace_dist_vector[j] - trace_dist_vector[j-1])                
+            else:
+                derivate = (trace_dist_vector[j+1] - trace_dist_vector[j-1])/2
+
+            trace_dist_derivate.append(derivate)
+
         trace_dist_file.close()
 
         fig = plt.figure(figsize=(16,9),dpi=200) 
@@ -160,6 +172,19 @@ def plot(main_dir, parameters, tmax):
         plt.ylabel(r'$D(\rho,\rho^{\perp})$',fontsize=16)
         plt.legend(handles=[k],fontsize=14)
         save_str = main_dir+'/trace_distance'        
+        plt.savefig(save_str,bbox_inches='tight')
+        plt.clf()
+        
+        fig = plt.figure(figsize=(16,9),dpi=200) 
+        plt.title(title_str,fontsize=16)
+        k,= plt.plot(time_steps,trace_dist_derivate,lw=2,label='Trace Distance Derivative')
+        plt.grid(linestyle='--')
+        plt.xlabel(r'$t$',fontsize=16)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.ylabel(r'$d/dt D(\rho,\rho^{\perp})$',fontsize=16)
+        plt.legend(handles=[k],fontsize=14)
+        save_str = main_dir+'/trace_distance_derivative'        
         plt.savefig(save_str,bbox_inches='tight')
         plt.clf()
             
@@ -200,21 +225,32 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
     statistics_file = open(main_dir+'/statistics.txt','w+')
     entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
 
-    coin_init_state = 1
-    ort_coin_state = 1
+    coin_init_state = []
+    ort_coin_state = []
 
     for i in range(0,dimension):
+
         rad_ba = (np.pi/180)*bloch_angle[i]
-        rad_pa = (np.pi/180)*phase_angle [i] 
+        rad_pa = (np.pi/180)*phase_angle [i]
+ 
         if 'fermion' == coin_type[i]:
+
             f = gEQWalks.FermionSpin()
             up_state = np.cos(rad_ba)*f.up
-            down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down 
-            coin_init_state = np.kron(coin_init_state,up_state + down_state)
+            down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down
+            if i > 0: 
+                coin_init_state = np.concatenate((coin_init_state,up_state + down_state),axis=0)
+            else:
+                coin_init_state = up_state + down_state
+
             if trace_dist:
+
                 o_up_state = -1*np.exp(-1j*rad_pa)*np.sin(rad_ba)*f.up
-                o_down_state = np.cos(rad_ba)*f.down 
-                ort_coin_state = np.kron(ort_coin_state,o_up_state + o_down_state)
+                o_down_state = np.cos(rad_ba)*f.down
+                if i >0: 
+                    ort_coin_state = np.concatenate((ort_coin_state,o_up_state + o_down_state),axis=0)
+                else:
+                    ort_coin_state = o_up_state + o_down_state
 
     W = gEQWalks.Walker(coin_init_state,L,q) # Walker.
 
@@ -225,18 +261,18 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
 
     for t in range(0,W.tmax):
  
-        ps,mp,msq,sq = statistics.position_statistics(W.density,L,2)
-        entang_entrop = statistics.entanglement_entropy(W.density,L)
+        ps,mp,msq,sq = statistics.position_statistics(W.state,L,2)
+        entang_entrop = statistics.entanglement_entropy(W.state,L)
 
         statistics_file = open(main_dir+'/statistics.txt','a')
         statistics_file.write('%f\t' %t)
-        statistics_file.writelines('%f\t' %c for c in mp[0])
-        statistics_file.writelines('%f\t' %c for c in sq[0])
+        statistics_file.writelines('%f\t' %i for i in mp[0])
+        statistics_file.writelines('%f\t' %i[0] for i in sq)
         statistics_file.write('\n')
         statistics_file.close()
 
         entanglement_file = open(main_dir+'/entanglement_entropy.txt','a')
-        entanglement_file.writelines('%f\t' %c for c in entang_entrop)
+        entanglement_file.writelines('%f\t' %i for i in entang_entrop)
         entanglement_file.write('\n')
         entanglement_file.close()
         
@@ -255,7 +291,7 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, trace_dist):
         if trace_dist:
 
             trace_dist_file = open(main_dir+'/trace_distance.txt','a')
-            td = statistics.trace_distance(W.density,W_orthogonal.density,L)
+            td = statistics.trace_distance(W.state,W_orthogonal.state,L)
             trace_dist_file.write('%f\n' %td)
             trace_dist_file.close()
             W_orthogonal.walk(c,L,f,t)
@@ -305,5 +341,5 @@ for i in range(0,1):
 
     parameters = [dimension, size, thetas, bloch_angle, phase_angle, q,trace_dist]
     thetas = (np.pi/180)*thetas
-    main_dir,tmax = gEQWalk(dimension, size, coin_type, thetas, bloch_angle,    phase_angle, q, trace_dist)
+    main_dir,tmax = gEQWalk(dimension, size, coin_type, thetas, bloch_angle, phase_angle, q, trace_dist)
     plot(main_dir, parameters, tmax)
