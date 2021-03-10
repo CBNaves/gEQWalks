@@ -2,15 +2,14 @@ import numpy as np
 import gEQWalks
 from scipy import sparse
 
-def position_statistics(state,lattice,coin): 
+def position_statistics(state,lattice): 
     
-    '''Function that returns an array of probabilities associated with a given 
-    time step in all directions, the mean positions, the mean square
-    of the positions and the variance respectively. The first parameter must be
-    the density function, the second the lattice in which he walks. The last 
-    parameter is the dimension of the coin, i.e. 2 if a fermion, 3 if a boson 
-    coin. 
+    ''' Function that returns an array of probabilities associated with a given 
+        time step in all directions, the mean positions, the mean square
+        of the positions and the variance respectively. The first parameter 
+        must be the state, the second the lattice in which he walks.
     '''
+
     size = lattice.size
     dimension = lattice.dimension
     h_size = int(size//2)
@@ -32,6 +31,7 @@ def position_statistics(state,lattice,coin):
         pos_prob = np.real(np.dot(np.conj(pos_state.T),pos_state)[0])
 
         for i in range(0,dimension):
+
             pos_prob_dist[i][pos[i]+h_size] = pos_prob_dist[i][pos[i]+h_size] + pos_prob 
             mean_pos[0][i] = mean_pos[0][i] + pos[i]*pos_prob
             mean_sq_pos[0][i] = mean_sq_pos[0][i] + (pos[i]**2)*pos_prob
@@ -45,8 +45,7 @@ def position_statistics(state,lattice,coin):
 def entanglement_entropy(state,lattice):
     
     ''' Function that returns the entanglement entropy of the coins degrees.
-        The first parameter must be the density matrix and the second the
-        lattice.
+        The first parameter must be the state and the second the lattice.
     '''
     
     dimension = lattice.dimension
@@ -67,6 +66,7 @@ def entanglement_entropy(state,lattice):
     entanglement_entropy_list = []
 
     for i in range(0,dimension):
+
         try:
             coin_reshape_list = (2,2**(dimension-i-1),2,2**(dimension-i-1))
             coin_density = remaining_density.reshape(coin_reshape_list)
@@ -94,6 +94,11 @@ def entanglement_entropy(state,lattice):
     return entanglement_entropy_list
 
 def trace_distance(rho,sigma,lattice):
+
+    ''' Function that calculates the trace distance between two states.
+        The first two parameters must be the two states to calculate the trace
+        distance and the last the lattice used.
+    '''
     
     dimension = lattice.dimension
     size = lattice.size

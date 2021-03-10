@@ -5,9 +5,16 @@ import gc
 
 def DisplacementsGenerator(q,size):
 
+    ''' Function that generates the displacements that will be used in every
+        time step, accordingly with the parameters of the probability       
+        distribuition used.
+    '''
+
     displacements_vector = []
+    # Parameter to check if the sum of displacements pass the lattice size.
     sum_dx = 0 
-    tmax = size//2
+    # The maximum time used is equal to half of the linear size.
+    tmax = size//2 
 
     for i in range(1,tmax+1):
 
@@ -28,10 +35,23 @@ def DisplacementsGenerator(q,size):
 
 def qExponential(q,x):
 
+    'Q-exponential probability distribuition, defined by the q parameter.'
+
     if q == 1:
         probability_distribuition = (2-q)*np.exp(-x)
-    elif q != 1 and q <= 10**(3):
-        probability_distribuition = (2-q)*(1 - (1-q)*x)**(1/(1-q))
+
+    elif q < 1 and q >=0:
+
+        probability_distribuition = []
+        for i in x:
+            if (1-q)*i <= 1:
+                probability_distribuition.append((2-q)*(1 - (1-q)*i)**(1/(1-q)))
+            else:
+                probability_distribuition.append(0)
+
+    elif q > 1 and q <= 10**(3):
+        probability_distribuition = (2-q)*(1 - (1-q)*i)**(1/(1-q))
+
     elif q > 10**(3):
         probability_distribuition = np.ones((np.size(x)))
     
@@ -39,6 +59,13 @@ def qExponential(q,x):
     return probability_distribuition/normalization
 
 def pos_index_function(pos,size,dimension):
+
+    ''' Function that returns the index of the matrix element of the walker
+        state corresponding to the position specified by the parameter pos.
+
+        The index is determined accordingly with the rule used in the           
+        matrix_scan function.
+    '''
 
     pos_index = 0
     h_size = int(size//2)
@@ -99,34 +126,20 @@ def matrix_scan(a,size,dimension,dimension_f,eig_pos):
               
     return eig_pos
 
-        
-def position_ket(position,size):
-    
-    ''' The position ket defines a column matrix associated with a position 
-        state in a direction. The matrix element associated with the origin
-        will be the central element, e.g. in a three sites lattice (0,1,0),
-        where (1,0,0) is the -1 site and (0,0,1) 1. So we ordenate the states  
-        from -N/2 to N/2, N+1 beeing the number of sites.
-    '''
-
-    pos_ket = sparse.lil_matrix((size,1),dtype=np.single)
-    pos_ket[position + (size//2),0] = 1
-   
-    return pos_ket
-
-        
 class FermionCoin:
 
-    ''' The fermion coin class defines the coin operator, that will act as the 
-    coin toss defining the direction which the walker will go, accordingly 
-    with the possible fermion spin states (up and down). 
+    ''' The fermion coin class defines the coin operator for a fermion spin, 
+        that will act as the coin toss defining the direction which the walker 
+        will go, accordingly with the possible fermion spin states (up and  
+        down). 
     '''
     
     def __init__(self,coin_parameters,lattice):
 
         ''' The parameter to pass must be a list with the theta angles that 
-        defines every coin operator, associated with all directions. 
+            defines every coin operator, associated with all directions. 
         '''
+
         dimension = lattice.dimension
         size = lattice.size
 
@@ -136,14 +149,13 @@ class FermionCoin:
         #  basis order C1 \otimes C2 ...
         #  This only works for separable coins.
         for parameter in self.coin_parameters: 
+
             theta = parameter
             coin = np.array([[np.cos(theta),1j*np.sin(theta)],[1j*np.sin(theta),np.cos(theta)]])
             self.coin = np.kron(self.coin,coin)
 
     def toss(self, state):
-        
-        # (I \otimes C)\rho(I \otimes C\dagger)
-        return np.dot(self.coin,state)
+        return np.dot(self.coin,state) # C \ket{coin_state}.
     
     def entangling_toss2D(self,state):
     
@@ -193,8 +205,10 @@ class Walker:
         
         dimension = lattice.dimension
         size = lattice.size
-        # Makes a column matrix for the pos. state, in the fashion |x>|y>.. in 
-        # the center of the lattice.
+
+        # Makes a column matrix for the walker state, in the fashion
+        # [|coin_state(r)>,|coin_state(r')>,..] so that we have an list
+        # of coin states in every position of the lattice.
         self.state = np.zeros((size**(dimension),2**dimension,1),dtype='csingle')
         origin = np.zeros((1,dimension))
         origin_index = pos_index_function(origin[0],size,dimension)
@@ -202,8 +216,8 @@ class Walker:
 
         self.q = q
         self.tmax = size//2
-        self.spin_bins = []
-        self.max_pos = []
+        self.spin_bins = [] # List that saves the spin binaries.
+        self.max_pos = [] 
 
         for j in range(0,2**dimension):
             spin_str = bin(j)
@@ -218,33 +232,35 @@ class Walker:
 
             self.max_pos.append(0)
 
-            if q[i] == 0.5: 
-                displacements = np.ones(size)
-                max_index = size//2 
-            else: 
-                max_index, displacements = DisplacementsGenerator(q[i],size)
+            max_index, displacements = DisplacementsGenerator(q[i],size)
 
             displacements_vector.append(displacements)
 
             self.tmax = min(self.tmax,max_index)
             
+            # Conditional to make the displacements vector in all the direc-
+            # tions the same size, appending zeros.
             if i != 0:
+
                 past_len = np.size(displacements_vector[i-1])
                 act_len = np.size(displacements_vector[i])
+
                 if past_len < act_len:
+
                     for j in range(0,act_len-past_len):
                         displacements_vector[i-1].append(0)
                 elif past_len > act_len:
+
                     for j in range(0,past_len-act_len):
                         displacements_vector[i].append(0)
         
         self.displacements_vector = np.array(displacements_vector)
 
-    def walk(self, coin, lattice, fermion, t):
+    def walk(self, coin, lattice, entang, t):
         
         ''' Method that makes the walker walk in one time step. The first 
-        parameter must be the coin(s) that will be used, the second the shift 
-        operator and the last the lattice.
+            parameter must be the coin(s) that will be used, the second the 
+            shift operator and the last the lattice.
         '''
         dimension = lattice.dimension
         size = lattice.size
@@ -254,18 +270,18 @@ class Walker:
 
         displacements = self.displacements_vector[:,t]
         
-        max_region = 0
-        for i in range(0,dimension):
-            self.max_pos[i] = self.max_pos[i] +  displacements[i]
-            max_region = max(max_region,self.max_pos[i])
+#        max_region = 0
+#        for i in range(0,dimension):
+#            self.max_pos[i] = self.max_pos[i] +  displacements[i]
+#            max_region = max(max_region,self.max_pos[i])
 
-        max_region = int(max_region)
+#        max_region = int(max_region)
 
-        min_ind = ((2*h_size)**(dimension))/2 - (2*h_size)**(dimension-1)*max_region
-        max_ind = ((2*h_size)**(dimension))/2 + (2*h_size)**(dimension-1)*max_region
+#        min_ind = ((2*h_size)**(dimension))/2 - (2*h_size)**(dimension-1)*max_region
+#        max_ind = ((2*h_size)**(dimension))/2 + (2*h_size)**(dimension-1)*max_region
 
-        min_ind = int(min_ind)
-        max_ind = int(max_ind)
+#        min_ind = int(min_ind)
+#        max_ind = int(max_ind)
 
         for pos in pos_basis[:,:]:
 
@@ -288,4 +304,7 @@ class Walker:
                         displaced_pos[k] = -pos[k]
 
                 displaced_index = pos_index_function(displaced_pos,size,dimension)
-                self.state[pos_index][i] = coin.toss(state[displaced_index])[i]
+                if entang == False:
+                    self.state[pos_index][i] = coin.toss(state[displaced_index])[i]
+                else:
+                    self.state[pos_index][i] = coin.entangling_toss2D(state[displaced_index])[i]
