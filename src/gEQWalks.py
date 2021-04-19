@@ -50,7 +50,7 @@ def qExponential(q,x):
                 probability_distribuition.append(0)
 
     elif q > 1 and q <= 10**(3):
-        probability_distribuition = (2-q)*(1 - (1-q)*i)**(1/(1-q))
+        probability_distribuition = (2-q)*(1 - (1-q)*x)**(1/(1-q))
 
     elif q > 10**(3):
         probability_distribuition = np.ones((np.size(x)))
@@ -195,7 +195,7 @@ class Walker:
     walk itself, i.e. the unitary evolution that he goes under.
     '''
     
-    def __init__(self, spin_init_state, lattice, q):
+    def __init__(self, spin_init_state, lattice, memory_dependence, q):
         
         ''' The position initial state is always on the center of the lattice.
         The first parameter is the spin initial state and he has to be given 
@@ -215,6 +215,7 @@ class Walker:
         self.state[origin_index] = spin_init_state
 
         self.q = q
+        self.memory_dependence = memory_dependence
         self.tmax = size//2
         self.spin_bins = [] # List that saves the spin binaries.
         self.max_pos = [] 
@@ -268,22 +269,23 @@ class Walker:
         pos_basis = np.array(lattice.pos_eig_val)
         state = np.copy(self.state)
 
-        displacements = self.displacements_vector[:,t]
-        
-#        max_region = 0
-#        for i in range(0,dimension):
-#            self.max_pos[i] = self.max_pos[i] +  displacements[i]
-#            max_region = max(max_region,self.max_pos[i])
+        displacements = []
+        dim_index_array = np.arange(0,int(dimension),dtype=int)
+        for i in range(0,dimension):
+            j = np.random.choice(dim_index_array,p = self.memory_dependence[i])
+            displacements.append(self.displacements_vector[j,t])
 
-#        max_region = int(max_region)
+        max_region = 0
+        for i in range(0,dimension):
+            self.max_pos[i] = self.max_pos[i] +  displacements[i]
+            max_region = max(max_region,self.max_pos[i])
 
-#        min_ind = ((2*h_size)**(dimension))/2 - (2*h_size)**(dimension-1)*max_region
-#        max_ind = ((2*h_size)**(dimension))/2 + (2*h_size)**(dimension-1)*max_region
+        max_region = int(max_region)
 
-#        min_ind = int(min_ind)
-#        max_ind = int(max_ind)
+        min_ind = pos_index_function([-max_region],size,dimension)
+        max_ind = pos_index_function([max_region],size,dimension)
 
-        for pos in pos_basis[:,:]:
+        for pos in pos_basis[min_ind:max_ind+1,:]:
 
             pos_index = pos_index_function(pos,size,dimension)
 

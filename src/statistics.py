@@ -22,7 +22,7 @@ def position_statistics(state,lattice):
 
     sigma_squared = []
 
-    pos_prob_dist = np.zeros((dimension,size))
+    pos_prob_dist = np.zeros((dimension,size)) 
 
     for pos in positions:
 
@@ -57,7 +57,6 @@ def entanglement_entropy(state,lattice):
 
         coin_density = coin_density + np.dot(coin_state,np.conj(coin_state.T)) 
 
-    coin_density = (1/(2**(dimension-1)))*np.array(coin_density)
     # Reshaping the coin density in a suitable manner.
     coin_reshape_list = [2 for x in range(0,2**dimension)]
     coin_density = coin_density.reshape(coin_reshape_list)

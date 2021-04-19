@@ -105,11 +105,22 @@ def plot(main_dir, parameters, tmax):
         plt.clf()
         
         variance = statistics[:,dimension+1+i]
-        log_variance = np.log(variance[1:])
+        log_variance = [] 
+        for j in variance[1:]:
+            if j != '0' and j != 'inf':
+                log_variance.append(j)
 
-        fit_params, pcov = optimize.curve_fit(general_variance,log_times,log_variance)
+        log_variance = np.array(log_variance) 
+
+        try:        
+            fit_params, pcov = optimize.curve_fit(general_variance,log_times,log_variance)
+        except:
+            fit_params = [0,0]
+            pcov = [[0,0],[0,0]]
+
         a = round(fit_params[0],5)
         b = round(fit_params[1],5)
+        
 
         plt.title(title_str,fontsize=16)
         l, = plt.plot(log_times,log_variance,label = 'Simulation',lw=2)
@@ -192,7 +203,7 @@ def plot(main_dir, parameters, tmax):
         plt.savefig(save_str,bbox_inches='tight')
         plt.clf()
             
-def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q,t_e):
+def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q, memory_dependence, t_e):
 
     ''' Function that simulates the generalized elephant quantum walk. The      
         parameters are the dimension of the lattice, its size, coin_type is 
@@ -213,12 +224,9 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q,t_e):
     date_time = datetime.now().strftime('%d%m%Y-%H:%M:%S')
 
     try:
-
         os.mkdir(main_dir+'/'+date_time)
         main_dir = main_dir+'/'+date_time
-
     except:
-
         os.mkdir(main_dir)
         main_dir = main_dir+'/'+date_time
         os.mkdir(main_dir)
@@ -233,9 +241,8 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q,t_e):
     statistics_file = open(main_dir+'/statistics.txt','w+')
     entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
 
-    coin_init_state = []
-    ort_coin_state = []
-
+    coin_init_state = 1
+    if trace_dist: ort_coin_state = 1
     for i in range(0,dimension):
 
         rad_ba = (np.pi/180)*bloch_angle[i]
@@ -247,27 +254,21 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q,t_e):
             f = gEQWalks.FermionSpin()
             up_state = np.cos(rad_ba)*f.up
             down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down
-            if i > 0: 
-                coin_init_state = np.concatenate((coin_init_state,up_state + down_state),axis=0)
-            else:
-                coin_init_state = up_state + down_state
+            coin_init_state = np.kron(coin_init_state,up_state + down_state)
 
             # Here we pick a orthogonal coin state to the initial coin state.
             if trace_dist:
 
                 o_up_state = -1*np.exp(-1j*rad_pa)*np.sin(rad_ba)*f.up
                 o_down_state = np.cos(rad_ba)*f.down
-                if i >0: 
-                    ort_coin_state = np.concatenate((ort_coin_state,o_up_state + o_down_state),axis=0)
-                else:
-                    ort_coin_state = o_up_state + o_down_state
+                ort_coin_state = np.kron(ort_coin_state,o_up_state + o_down_state)
 
-    W = gEQWalks.Walker(coin_init_state,L,q) # Walker.
+    W = gEQWalks.Walker(coin_init_state,L,memory_dependence,q) # Walker.
 
     if trace_dist: 
 
         trace_dist_file = open(main_dir+'/trace_distance.txt','w+')
-        W_orthogonal = gEQWalks.Walker(ort_coin_state,L,q)
+        W_orthogonal = gEQWalks.Walker(ort_coin_state,L,memory_dependence,q)
         # As we want the same evolution, the displacements in every time step
         # has to be the sabe for both states.
         W_orthogonal.displacements_vector = W.displacements_vector    
@@ -317,7 +318,6 @@ def gEQWalk(dimension, size, coin_type, thetas, bloch, phase, q,t_e):
 
     return(main_dir,W.tmax)
 
-
 params = [x.split(' ')[2:] for x in open('gEQW.cfg').read().splitlines()]
 
 # The order in which the parameters are readed are specified by the cfg file.
@@ -336,7 +336,7 @@ for i in range(0,dimension):
 
 for i in range (0,2*dimension,2):
 
-    bloch_angle.append(float(params[4][i])) 
+    bloch_angle.append(float(params[4][i]))
     phase_angle.append(float(params[4][i+1]))
 
 thetas = np.array(thetas)
@@ -344,25 +344,32 @@ thetas = np.array(thetas)
 try:
     os.mkdir('data')
 except:
-        pass    
+    pass    
     
 q = []
 for i in range (0,dimension):
     q.append(float(params[5][i]))
 
-trace_dist = params[6][0]
-if trace_dist == 'False': trace_dist = False
-if trace_dist == 'True': trace_dist = True
+memory_dependence = params[6]
+for i in range(0,len(memory_dependence)):
+    memory_dependence[i] = float(memory_dependence[i])
+memory_dependence = np.array(memory_dependence)
+memory_dependence = memory_dependence.reshape((dimension,dimension))
 
-entang = params[7][0]
+trace_dist = params[7][0]
+if trace_dist == 'False': trace_dist = False
+elif trace_dist == 'True': trace_dist = True
+
+entang = params[8][0]
 if entang == 'False': entang = False
-if entang == 'True': entang = True
+elif entang == 'True': entang = True
 
 t_e = [trace_dist,entang]
 
 parameters = [dimension, size, thetas, bloch_angle, phase_angle, q,t_e]
 thetas = (np.pi/180)*thetas # Converting the thetas angles to radian.
 
-main_dir,tmax = gEQWalk(dimension, size, coin_type, thetas, bloch_angle, phase_angle, q, t_e)
+main_dir,tmax = gEQWalk(dimension, size, coin_type, thetas, bloch_angle,    phase_angle, q, memory_dependence, t_e)
 
 plot(main_dir, parameters, tmax)
+
