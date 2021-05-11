@@ -345,7 +345,7 @@ for i in range(0,dimension):
     coin_type.append(params[2][i])
     thetas.append(float(params[3][i]))
 
-in_pos_var = params[4]
+in_pos_var = params[4] # Initial position state variance.
 
 for i in range (0,2*dimension,2):
 
