@@ -58,6 +58,11 @@ def qExponential(q,x):
     normalization = sum(probability_distribuition)    
     return probability_distribuition/normalization
 
+def gaussian_dist(pos,in_pos_var):
+    sigma_sq = in_pos_var
+    return np.exp(-pos**(2)/(4*sigma_sq))/(2*np.pi*sigma_sq)**(1/4)
+    
+
 def pos_index_function(pos,size,dimension):
 
     ''' Function that returns the index of the matrix element of the walker
@@ -195,7 +200,7 @@ class Walker:
     walk itself, i.e. the unitary evolution that he goes under.
     '''
     
-    def __init__(self, spin_init_state, lattice, memory_dependence, q):
+    def __init__(self, walker_params):
         
         ''' The position initial state is always on the center of the lattice.
         The first parameter is the spin initial state and he has to be given 
@@ -203,16 +208,34 @@ class Walker:
         must be the lattice that the walker walks in.
         '''
         
+        in_pos_var, spin_instate, lattice, memory_dependence, q = walker_params 
+
+        in_pos_var = float(in_pos_var[0])
         dimension = lattice.dimension
         size = lattice.size
-
         # Makes a column matrix for the walker state, in the fashion
         # [|coin_state(r)>,|coin_state(r')>,..] so that we have an list
         # of coin states in every position of the lattice.
         self.state = np.zeros((size**(dimension),2**dimension,1),dtype='csingle')
-        origin = np.zeros((1,dimension))
-        origin_index = pos_index_function(origin[0],size,dimension)
-        self.state[origin_index] = spin_init_state
+
+        # Localized initial position
+        if in_pos_var == 0:
+
+            origin = np.zeros((1,dimension))
+            origin_index = pos_index_function(origin[0],size,dimension)
+            self.state[origin_index] = spin_instate
+
+        # Gaussian position initial state
+        else:
+    
+            normalization = 0
+            
+            for pos in range(-(size//2),(size//2)+1):
+                pos_amp = gaussian_dist(pos,in_pos_var)
+                normalization = normalization + pos_amp*np.conj(pos_amp)
+                pos_index = pos_index_function([pos],size,dimension)
+                self.state[pos_index] = pos_amp*spin_instate    
+            self.state = (1/np.sqrt(normalization))*self.state
 
         self.q = q
         self.memory_dependence = memory_dependence
@@ -275,17 +298,17 @@ class Walker:
             j = np.random.choice(dim_index_array,p = self.memory_dependence[i])
             displacements.append(self.displacements_vector[j,t])
 
-        max_region = 0
-        for i in range(0,dimension):
-            self.max_pos[i] = self.max_pos[i] +  displacements[i]
-            max_region = max(max_region,self.max_pos[i])
+#        max_region = 0
+#        for i in range(0,dimension):
+#            self.max_pos[i] = self.max_pos[i] +  displacements[i]
+#            max_region = max(max_region,self.max_pos[i])
 
-        max_region = int(max_region)
+#        max_region = int(max_region)
 
-        min_ind = pos_index_function([-max_region],size,dimension)
-        max_ind = pos_index_function([max_region],size,dimension)
+#        min_ind = pos_index_function([-max_region],size,dimension)
+#        max_ind = pos_index_function([max_region],size,dimension)
 
-        for pos in pos_basis[min_ind:max_ind+1,:]:
+        for pos in pos_basis[:,:]:
 
             pos_index = pos_index_function(pos,size,dimension)
 
