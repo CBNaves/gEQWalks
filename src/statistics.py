@@ -14,7 +14,7 @@ def position_statistics(state,lattice):
     dimension = lattice.dimension
     h_size = int(size//2)
 
-    positions = lattice.pos_eig_val
+    positions = np.array(lattice.pos_eig_val)
     # Array that stores the mean position in the lattice in every direction. 
     mean_pos = np.zeros((1,dimension))
     # Array that stores the mean squared position in the lattice ''. 
@@ -24,13 +24,10 @@ def position_statistics(state,lattice):
 
     pos_prob_dist = np.zeros((dimension,size)) 
 
-    for pos in positions[]:
+    for pos in positions:
 
-        print(pos,'\n')
-        pos_state = np.copy(state)
-        for i in range(0,dimension):
-            pos_state = pos_state[pos[i]]
- 
+        pos_index = gEQWalks.pos_index_function(pos,size,dimension)
+        pos_state = state[pos_index] 
         pos_prob = np.real(np.dot(np.conj(pos_state.T),pos_state)[0])
 
         for i in range(0,dimension):

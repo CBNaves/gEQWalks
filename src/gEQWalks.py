@@ -25,13 +25,13 @@ def DisplacementsGenerator(q,size):
         
         sum_dx = sum_dx + dx
         if sum_dx == size//2:
-            max_time_step = i
+            max_index = i
             break
         elif sum_dx > size//2:
-            max_time_step = i-1
+            max_index = i-1
             break
 
-    return max_time_step, displacements_vector
+    return max_index, displacements_vector
 
 def qExponential(q,x):
 
@@ -93,24 +93,43 @@ class Lattice:
         self.size = size
         # Defines a list where every element is a list of position basis state 
         # with its eigenvalues, e.g. (x,y,z).
-        pos_array = np.arange(-size//2+1,size//2+1)
-        reshape_array = [-1]
-        mesh_tuple = []
-        transpose_array = []
+        self.pos_eig_val = matrix_scan([],size,dimension,dimension,[])
 
-        for i in range(0,dimension):
+def matrix_scan(a,size,dimension,dimension_f,eig_pos):    
+  
+    ''' Matrix_scan is a recursive function that passes through every position 
+    in the n-dimensional square lattice, to define the position basis. The re-
+    -cursivity is used to generalize the scan to any dimension. We take a posi-
+    -tion in the N-1 directions and scans to every possible position on the 
+    last, then we chage the position on the N-2 direction and rebegin this pro-
+    -cess (e.g. in a square 2D lattice we scan in the vertical lines).
+            
+    The first argument is a list to save the position in every direction, the 
+    second the dimension of the lattice, the third a fixed copy, and the last a
+    parameter to save the position ket on the returning of the recursivity.
+    '''
+            
+    # If the dimension is not zero, we take a position in the lattice in a di-
+    # -rection and pass to the next.
 
-            transpose_array.append(dimension-i-1)
-            reshape_array.append(size)
-            mesh_tuple.append(pos_array)
-
-        mesh_tuple = tuple(mesh_tuple)
-        reshape_array.append(dimension)
-        self.pos_eig_val = np.meshgrid(*mesh_tuple)
-        self.pos_eig_val = np.array(self.pos_eig_val).T.reshape(reshape_array)
-        self.pos_eig_val = self.pos_eig_val[0]
-        if dimension > 2:
-            self.pos_eig_val = np.transpose(self.pos_eig_val,axes=transpose_array)
+    if dimension !=0:
+        for i in range(-(size//2),(size//2) +1):
+            a.append(i)
+            if dimension != 1: 
+                pos = matrix_scan(a,size,dimension-1,dimension_f,eig_pos)
+            # When the dimension parameter is equal to one, this means that we 
+            # already have the n-tuple of positions and we can define the state
+            # vector to that position.
+                    
+            else:
+                # A copy has to be made to not modify the n-tuple in pos when 
+                # we pop.                  
+                b = a.copy()  
+                eig_pos.append(b)
+       
+            a.pop(dimension_f-dimension)
+              
+    return eig_pos
 
 class FermionCoin:
 
@@ -181,56 +200,49 @@ class Walker:
     walk itself, i.e. the unitary evolution that he goes under.
     '''
     
-    def __init__(self, in_pos_var, spin_instate, lattice, memory_dependence, q):
+    def __init__(self, walker_params):
         
         ''' The position initial state is always on the center of the lattice.
         The first parameter is the spin initial state and he has to be given 
         accordingly with the dimension of the lattice. The second parameter 
         must be the lattice that the walker walks in.
         '''
+        
+        in_pos_var, spin_instate, lattice, memory_dependence, q = walker_params 
+
+        in_pos_var = float(in_pos_var[0])
         dimension = lattice.dimension
         size = lattice.size
-        self.q = q
-        self.memory_dependence = memory_dependence
-
         # Makes a column matrix for the walker state, in the fashion
         # [|coin_state(r)>,|coin_state(r')>,..] so that we have an list
         # of coin states in every position of the lattice.
-        self.state = 1
-        self.max_region = []
-        self.max_displacement = []
-        reshape_array = []
-        for i in range(0,dimension):
+        self.state = np.zeros((size**(dimension),2**dimension,1),dtype='csingle')
 
-            reshape_array.append(size)
-            self.max_displacement.append(0)
-            linear_state = np.zeros((size,2,1),dtype='csingle')
+        # Localized initial position
+        if in_pos_var == 0:
 
-            # Change to pass a general initial dist. function !!
-            # Localized initial position
-            if in_pos_var[i] == 0:
-                
-                linear_state[size//2] = spin_instate[i]
-                self.max_region.append(0)           
-            # Gaussian position initial state
-            else:
+            origin = np.zeros((1,dimension))
+            origin_index = pos_index_function(origin[0],size,dimension)
+            self.state[origin_index] = spin_instate
 
-                normalization = 0
+        # Gaussian position initial state
+        else:
+    
+            normalization = 0
+            
+            for pos in range(-(size//2),(size//2)+1):
+                pos_amp = gaussian_dist(pos,in_pos_var)
+                normalization = normalization + pos_amp*np.conj(pos_amp)
+                pos_index = pos_index_function([pos],size,dimension)
+                self.state[pos_index] = pos_amp*spin_instate    
+            self.state = (1/np.sqrt(normalization))*self.state
 
-                for pos in range(-(size//2),(size//2)+1):
-                    pos_amp = gaussian_dist(pos,in_pos_var[i])
-                    normalization = normalization + pos_amp*np.conj(pos_amp)
-                    linear_state[pos+(size//2)] = pos_amp*spin_instate[i]  
-  
-                linear_state = (1/np.sqrt(normalization))*linear_state
-                self.max_region.append(size//2)
-
-            self.state = np.kron(self.state,linear_state)
-        reshape_array.append(2**dimension)
-        reshape_array.append(1) 
-        self.state = self.state.reshape(reshape_array) 
-
+        self.q = q
+        self.memory_dependence = memory_dependence
+        self.tmax = size//2
         self.spin_bins = [] # List that saves the spin binaries.
+        self.max_pos = [] 
+
         for j in range(0,2**dimension):
             spin_str = bin(j)
             spin_str = spin_str[2:]
@@ -238,13 +250,18 @@ class Walker:
                     spin_str = '0' + spin_str
             self.spin_bins.append(spin_str)
 
-        self.tmax = size//2
         displacements_vector = []
+
         for i in range(0,dimension):
 
-            max_time_step, displacements = DisplacementsGenerator(q[i],size)
+            self.max_pos.append(0)
+
+            max_index, displacements = DisplacementsGenerator(q[i],size)
+
             displacements_vector.append(displacements)
-            self.tmax = min(self.tmax,max_time_step)
+
+            self.tmax = min(self.tmax,max_index)
+            
             # Conditional to make the displacements vector in all the direc-
             # tions the same size, appending zeros.
             if i != 0:
@@ -269,27 +286,29 @@ class Walker:
             parameter must be the coin(s) that will be used, the second the 
             shift operator and the last the lattice.
         '''
-
         dimension = lattice.dimension
         size = lattice.size
-        pos_basis = lattice.pos_eig_val
         h_size = int(size//2)
+        pos_basis = np.array(lattice.pos_eig_val)
         state = np.copy(self.state)
-        displacements = []
 
+        displacements = []
         dim_index_array = np.arange(0,int(dimension),dtype=int)
         for i in range(0,dimension):
-
             j = np.random.choice(dim_index_array,p = self.memory_dependence[i])
             displacements.append(self.displacements_vector[j,t])
 
-        for i in range(0,dimension):
+#        max_region = 0
+#        for i in range(0,dimension):
+#            self.max_pos[i] = self.max_pos[i] +  displacements[i]
+#            max_region = max(max_region,self.max_pos[i])
 
-            self.max_displacement[i] = self.max_displacement[i] +  displacements[i]
-            self.max_region[i] = max(self.max_region[i],self.max_displacement[i])
+#        max_region = int(max_region)
 
+#        min_ind = pos_index_function([-max_region],size,dimension)
+#        max_ind = pos_index_function([max_region],size,dimension)
 
-        for pos in pos_basis:
+        for pos in pos_basis[:,:]:
 
             pos_index = pos_index_function(pos,size,dimension)
 
