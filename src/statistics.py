@@ -9,12 +9,11 @@ def position_statistics(state,lattice):
         of the positions and the variance respectively. The first parameter 
         must be the state, the second the lattice in which he walks.
     '''
-
     size = lattice.size
     dimension = lattice.dimension
     h_size = int(size//2)
 
-    positions = np.array(lattice.pos_eig_val)
+    positions = lattice.useful_eig_val
     # Array that stores the mean position in the lattice in every direction. 
     mean_pos = np.zeros((1,dimension))
     # Array that stores the mean squared position in the lattice ''. 
@@ -47,7 +46,7 @@ def entanglement_entropy(state,lattice):
     ''' Function that returns the entanglement entropy of the coins degrees.
         The first parameter must be the state and the second the lattice.
     '''
-    
+
     dimension = lattice.dimension
     size = lattice.size
    

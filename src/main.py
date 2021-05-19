@@ -4,11 +4,13 @@ import gEQWalks
 import statistics
 import time
 import os
+import sys
 from scipy import optimize
 from datetime import datetime
 from shutil import copy
 
-def plot(main_dir, params, tmax):
+def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle, 
+        phase_angle, q, trace_entang, tmax):
 
     ''' Function that makes the plots for the final position probabilities  
         distribuitions and the variances,entanglement entropy for every
@@ -19,7 +21,6 @@ def plot(main_dir, params, tmax):
 
     # trace_dist is a boolean parameter to choose if plot the trace distance
     # graphs.
-    dimension, size, thetas, in_pos_var, bloch_angle, phase_angle, q,trace_entang = params
     trace_dist, entang = trace_entang
     # String that specifies the q's used.
     str_q = '['
@@ -203,7 +204,8 @@ def plot(main_dir, params, tmax):
         plt.savefig(save_str,bbox_inches='tight')
         plt.clf()
             
-def gEQWalk(params, coin_type, memory_dependence):
+def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle, 
+            phase_angle, q, memory_dependence, trace_entang):
 
     ''' Function that simulates the generalized elephant quantum walk. The      
         parameters are the dimension of the lattice, its size, coin_type is 
@@ -217,7 +219,6 @@ def gEQWalk(params, coin_type, memory_dependence):
         Returns the simulation directory.
     '''
 
-    dimension, size, thetas, in_pos_var, bloch_angle, phase_angle, q,trace_entang = params
     trace_dist, entang = trace_entang
     # Main directory in which the simulation directory will be saved,
     # separated by qwalk type and dimension.
@@ -244,36 +245,36 @@ def gEQWalk(params, coin_type, memory_dependence):
     statistics_file = open(main_dir+'/statistics.txt','w+')
     entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
 
-    coin_init_state = 1
-    if trace_dist: ort_coin_state = 1
+    coin_instate = 1
+    if trace_dist: ort_coin_istate = 1
     for i in range(0,dimension):
 
         rad_ba = (np.pi/180)*bloch_angle[i]
         rad_pa = (np.pi/180)*phase_angle [i]
  
-        # Separate from the main code!
         if 'fermion' == coin_type[i]:
 
             f = gEQWalks.FermionSpin()
             up_state = np.cos(rad_ba)*f.up
             down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down
-            coin_init_state = np.kron(coin_init_state,up_state + down_state)
+            coin_instate = np.kron(coin_instate,up_state + down_state)
 
             # Here we pick a orthogonal coin state to the initial coin state.
             if trace_dist:
 
                 o_up_state = -1*np.exp(-1j*rad_pa)*np.sin(rad_ba)*f.up
                 o_down_state = np.cos(rad_ba)*f.down
-                ort_coin_state = np.kron(ort_coin_state,o_up_state + o_down_state)
+                ort_coin_state = np.kron(ort_coin_instate,
+                                        o_up_state + o_down_state)
 
-    walker_params = in_pos_var, coin_init_state, L, memory_dependence, q
-    W = gEQWalks.Walker(walker_params)
+    W = gEQWalks.Walker(in_pos_var, coin_instate, L, memory_dependence, q)
 
     if trace_dist: 
 
         trace_dist_file = open(main_dir+'/trace_distance.txt','w+')
-        walker_params = in_pos_var, ort_coin_state, L, memory_dependence, q
-        W_orthogonal = gEQWalks.Walker(walker_params)
+        W_orthogonal = gEQWalks.Walker(in_pos_var, ort_coin_instate, L, 
+                                        memory_dependence, q)
+
         # As we want the same evolution, the displacements in every time step
         # has to be the same for both states.
         W_orthogonal.displacements_vector = W.displacements_vector    
@@ -289,12 +290,10 @@ def gEQWalk(params, coin_type, memory_dependence):
         statistics_file.writelines('%f\t' %i for i in mp[0])
         statistics_file.writelines('%f\t' %i[0] for i in sq)
         statistics_file.write('\n')
-        statistics_file.close()
 
         entanglement_file = open(main_dir+'/entanglement_entropy.txt','a')
         entanglement_file.writelines('%f\t' %i for i in entang_entrop)
         entanglement_file.write('\n')
-        entanglement_file.close()
         
         # For every time step a file to save the probabilities is created.
         prob_dist_file = open(main_dir+'/pd_'+str(t),'w+')
@@ -308,6 +307,8 @@ def gEQWalk(params, coin_type, memory_dependence):
 
         prob_dist_file.close()
 
+        print('time: ',t,end = '\r')
+
         if trace_dist:
 
             trace_dist_file = open(main_dir+'/trace_distance.txt','a')
@@ -316,15 +317,15 @@ def gEQWalk(params, coin_type, memory_dependence):
             trace_dist_file.close()
             W_orthogonal.walk(c,L,entang,t)
 
-        print('time: ',t,end = '\r')
-
         trace = 0 # Checking if the trace of the density op. remains one.
-        for state in W.state:
-            trace = trace + np.dot(np.conj(state.T),state)
-        if trace < 0.999999 : print('Error! Not TP! \n')
+#        for state in W.state:
+#            trace = trace + np.real(np.dot(np.conj(state.T),state))
+#        if trace < 9e-10 : print('Error! Not TP! \n')
        
         W.walk(c,L,entang,t) # A time step walk.
 
+    entanglement_file.close()
+    statistics_file.close()
     print("--- %s seconds ---" % (time.time() - start_time))
 
     return(main_dir,W.tmax)
@@ -339,13 +340,15 @@ thetas = []
 coin_type = []
 bloch_angle = []
 phase_angle = []
+in_pos_var = []
 
 for i in range(0,dimension):
 
     coin_type.append(params[2][i])
     thetas.append(float(params[3][i]))
+    in_pos_var.append(float(params[4][i]))
 
-in_pos_var = params[4] # Initial position state variance.
+in_pos_var = np.array(in_pos_var)
 
 for i in range (0,2*dimension,2):
 
@@ -378,9 +381,11 @@ if entang == 'False': entang = False
 elif entang == 'True': entang = True
 
 trace_entang = [trace_dist,entang]
-params = [dimension, size, thetas, in_pos_var, bloch_angle, phase_angle, q,trace_entang]
 
-main_dir,tmax = gEQWalk(params, coin_type, memory_dependence)
+main_dir,tmax = gEQWalk(dimension, size, thetas, in_pos_var, coin_type, 
+                        bloch_angle, phase_angle, q, memory_dependence, 
+                        trace_entang)
 
-plot(main_dir, params, tmax)
+plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle, phase_angle, 
+    q, trace_entang, tmax)
 
