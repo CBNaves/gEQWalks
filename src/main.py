@@ -11,13 +11,12 @@ from shutil import copy
 
 def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle, 
         phase_angle, q, trace_entang, tmax):
-
-    ''' Function that makes the plots for the final position probabilities  
-        distribuitions and the variances,entanglement entropy for every
-        dimension. The first parameter is the directory string in which the
-        plots will be saved and the last the parameters for the plots label 
-        and titles.
-    '''
+    """ Function that makes the plots for the final position probabilities  
+    distribuitions and the variances,entanglement entropy for every
+    dimension. The first parameter is the directory string in which the
+    plots will be saved and the last the parameters for the plots label 
+    and titles.
+    """
 
     # trace_dist is a boolean parameter to choose if plot the trace distance
     # graphs.
@@ -26,8 +25,7 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
     str_q = '['
     for i in q:
         if i > 10**(3): str_q = str_q + '\infty ,'
-        else: str_q = str_q + str(i)+' ,'
-    
+        else: str_q = str_q + str(i)+' ,'    
     # Removing the last comma.
     str_q = str_q[0:np.size(str_q)-2]
     str_q = str_q +']'
@@ -152,7 +150,6 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
     entanglement_file.close()
 
     if trace_dist:
-
         trace_dist_vector = []
         trace_dist_file = open(main_dir+'/trace_distance.txt','r')
      
@@ -165,7 +162,6 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
         # for the terminals.
         trace_dist_derivate = []
         for i in time_steps[:]:
-
             j = int(i)
             if i == 0:
                 derivate = (trace_dist_vector[j+1] - trace_dist_vector[j])
@@ -206,18 +202,40 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
             
 def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle, 
             phase_angle, q, memory_dependence, trace_entang):
+    """ Function that simulates the generalized elephant quantum walk.
+    The parameters are:
+        dimension (int): dimension of the lattice;
 
-    ''' Function that simulates the generalized elephant quantum walk. The      
-        parameters are the dimension of the lattice, its size, coin_type is 
-        the fermion, thetas the list that specifies the coins operators, bloch  
-        and phase the angles that specifies the coin initial state, q is the q-
-        exponential parameter and trace_dist the boolean parameter that 
-        specifies if the trace distance between the coin state and a orthogo-   
-        nal state will be 
-        calculated.
+        size (int): linear size of the lattice;
+ 
+        thetas = [theta_1,theta_2,..](array,floats): is the thetas parameters 
+        defining the coin operator for every coin;
+ 
+        in_pos_var (float): initial position variance of the walker;
 
-        Returns the simulation directory.
-    '''
+        coin_type (str): type of the coin, fermion or boson(not implemented);
+
+        bloch_angle (array,floats): array of the polar angles that defines the
+        coins initial state in the bloch sphere;
+
+        phase_angle (array,floats): array of the phase angles that defines the
+        coins initial state in the bloch sphere;
+    
+        q = [q_1,q_2,...] (array,floats): array of floats that defines the 
+        parameters of the q-Exponential distribution;
+
+        memory_dependence = [p_11,p_12,...] (array): array with the 
+        interdependence probabilities between the displacements in every 
+        direction;
+
+        trace_entangle = [trace_dist,entang] (bool): list of boolean parameters
+        that specifies if the trace distance between the coin state and an 
+        orthogonal one will be calculated and a entangling coin operator (2D)
+        will be used.
+
+    Returns a tuple with the simulation directory and the maximum simulated 
+    time.
+    """
 
     trace_dist, entang = trace_entang
     # Main directory in which the simulation directory will be saved,
@@ -234,26 +252,22 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
         main_dir = main_dir+'/'+date_time
         os.mkdir(main_dir)
     
-    # Copying the parameters used in to the simulation directory.
     copy('gEQW.cfg', main_dir+'/parameters.txt')
-    start_time = time.time() # Start time of the simulation.
-    L = gEQWalks.Lattice(dimension,size) # Lattice.
+    start_time = time.time()
+    L = gEQWalks.Lattice(dimension,size)
     thetas = (np.pi/180)*thetas
-    c = gEQWalks.FermionCoin(thetas,L)   # Coin operators.
+    c = gEQWalks.FermionCoin(thetas,L)
 
-    # Creating the file in which the statistics will be saved.
     statistics_file = open(main_dir+'/statistics.txt','w+')
     entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
 
     coin_instate = 1
-    if trace_dist: ort_coin_istate = 1
+    if trace_dist: ort_coin_instate = 1
     for i in range(0,dimension):
-
         rad_ba = (np.pi/180)*bloch_angle[i]
         rad_pa = (np.pi/180)*phase_angle [i]
  
         if 'fermion' == coin_type[i]:
-
             f = gEQWalks.FermionSpin()
             up_state = np.cos(rad_ba)*f.up
             down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down
@@ -261,27 +275,23 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
 
             # Here we pick a orthogonal coin state to the initial coin state.
             if trace_dist:
-
                 o_up_state = -1*np.exp(-1j*rad_pa)*np.sin(rad_ba)*f.up
                 o_down_state = np.cos(rad_ba)*f.down
-                ort_coin_state = np.kron(ort_coin_instate,
+                ort_coin_instate = np.kron(ort_coin_instate,
                                         o_up_state + o_down_state)
 
     W = gEQWalks.Walker(in_pos_var, coin_instate, L, memory_dependence, q)
 
     if trace_dist: 
-
         trace_dist_file = open(main_dir+'/trace_distance.txt','w+')
         W_orthogonal = gEQWalks.Walker(in_pos_var, ort_coin_instate, L, 
                                         memory_dependence, q)
-
         # As we want the same evolution, the displacements in every time step
         # has to be the same for both states.
         W_orthogonal.displacements_vector = W.displacements_vector    
 
     print('Max. time: ', W.tmax,end = '\n')
     for t in range(0,W.tmax):
- 
         ps,mp,msq,sq = statistics.position_statistics(W.state,L)
         entang_entrop = statistics.entanglement_entropy(W.state,L)
 
@@ -301,7 +311,6 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
         # We save the probabilities for a given dimension in on line, the next
         # in the next line, and so forth.
         for i in range(0,dimension):
-
             prob_dist_file.writelines('%f\t' %c for c in ps[i])
             prob_dist_file.write('\n')
 
@@ -310,19 +319,18 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
         print('time: ',t,end = '\r')
 
         if trace_dist:
-
             trace_dist_file = open(main_dir+'/trace_distance.txt','a')
             td = statistics.trace_distance(W.state,W_orthogonal.state,L)
             trace_dist_file.write('%f\n' %td)
             trace_dist_file.close()
             W_orthogonal.walk(c,L,entang,t)
 
-        trace = 0 # Checking if the trace of the density op. remains one.
-#        for state in W.state:
-#            trace = trace + np.real(np.dot(np.conj(state.T),state))
-#        if trace < 9e-10 : print('Error! Not TP! \n')
+        trace = 0
+        for state in W.state:
+            trace = trace + np.real(np.dot(np.conj(state.T),state))
+        if trace < 9e-10 : print('Error! Not TP! \n')
        
-        W.walk(c,L,entang,t) # A time step walk.
+        W.walk(c,L,entang,t)
 
     entanglement_file.close()
     statistics_file.close()
@@ -331,7 +339,6 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
     return(main_dir,W.tmax)
 
 params = [x.split(' ')[2:] for x in open('gEQW.cfg').read().splitlines()]
-
 # The order in which the parameters are readed are specified by the cfg file.
 dimension = int(params[0][0])
 size = int(params[1][0])
