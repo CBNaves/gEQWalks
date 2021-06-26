@@ -17,24 +17,24 @@ def position_statistics(state,lattice):
 
     mean_pos = np.zeros((1,dimension))
     mean_sq_pos = np.zeros((1,dimension))
-    pos_prob_dist = np.zeros((dimension,size)) 
+    pos_prob_dist = np.zeros(size**dimension) 
     sigma_squared = []
 
     for pos in positions:
         pos_index = gEQWalks.pos_index_function(pos,size,dimension)
         pos_state = state[pos_index] 
-        pos_prob = np.real(np.dot(np.conj(pos_state.T),pos_state)[0])
-
-        for i in range(0,dimension):
-            pos_prob_dist[i][pos[i]+h_size] = (pos_prob_dist[i][pos[i]+h_size] 
-                                              + pos_prob) 
-            mean_pos[0][i] = mean_pos[0][i] + pos[i]*pos_prob
-            mean_sq_pos[0][i] = mean_sq_pos[0][i] + (pos[i]**2)*pos_prob
+        pos_prob_dist[pos_index] = np.real(np.dot(np.conj(pos_state.T),
+                                                  pos_state)[0])
+        for i in range(0,dimension): 
+            mean_pos[0][i] = mean_pos[0][i] + pos[i]*pos_prob_dist[pos_index]
+            mean_sq_pos[0][i] = mean_sq_pos[0][i] + (pos[i]**2)*pos_prob_dist[pos_index]
 
     for i in range(0,dimension):
         sigma_squared.append([mean_sq_pos[0][i] - (mean_pos[0][i])**2])
 
-    return pos_prob_dist,mean_pos,mean_sq_pos,sigma_squared
+    pos_prob_dist = pos_prob_dist.reshape(int(size)*np.ones(dimension,dtype = int))
+
+    return pos_prob_dist, mean_pos, mean_sq_pos, sigma_squared
     
 
 def entanglement_entropy(state,lattice):

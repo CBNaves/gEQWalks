@@ -1,7 +1,6 @@
 import numpy as np
 from itertools import product
 from scipy import sparse
-import gc 
 
 def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
     """ Returns: 
@@ -42,8 +41,8 @@ def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
     return max_time_step, displacements_vector
 
 def qExponential(q,x):
-    """ Returns a Q-exponential probability distribution, defined by the q 
-    parameter.
+    """ Returns a discrete Q-exponential probability distribution, defined by 
+    the q parameter.
     """
     if q == 1:
         probability_distribution = (2-q)*np.exp(-x)
