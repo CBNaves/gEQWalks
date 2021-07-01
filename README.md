@@ -9,7 +9,7 @@ in which all the past time instants are equally probable to be selected. For mor
 
 * A Review on quantum walks - https://arxiv.org/pdf/1207.7283.pdf
 
-* Elephant quantum qalk - https://doi.org/10.1103/PhysRevA.97.062112
+* Elephant quantum walk - https://doi.org/10.1103/PhysRevA.97.062112
 
 * Generalized elephant quantum walk - https://www.nature.com/articles/s41598-019-55642-5
 
