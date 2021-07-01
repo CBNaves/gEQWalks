@@ -187,19 +187,29 @@ class FermionCoin:
         return np.dot(entangling_toss,state)
     
 
-class FermionSpin:
-    """ Class that defines a l = 1/2 fermion spin state.
-        
-        Instance variables: up, down.
-    """
+def FermionSpin(dimension, basis_index):
+    """ dimension (int): dimension of the problem.
+        basis_index (int): integer corresponding to the binary that specifies
+    the basis state. 0 corresponds to spin up, 1 to spin down.
+ 
+    Returns a qubit coin basis state. 
+    """    
+    up = np.array([[1],[0]])
+    down = np.array([[0],[1]])
     
-    def __init__(self):
-        """ up: spin up state;
-            down: spind down state;
-        """
-        self.up = np.array([[1],[0]])
-        self.down = np.array([[0],[1]])  
+    bin_basis_index = str(bin(basis_index))[2:]
+    if len(bin_basis_index) < dimension:
+        bin_basis_index = (int(dimension- len(bin_basis_index))*'0' +
+                          bin_basis_index) 
 
+    basis_state = 1
+    for i in range(0,dimension):
+        if bin_basis_index[i] == '0':
+            basis_state = np.kron(basis_state,up)
+        else:
+            basis_state = np.kron(basis_state,down)
+   
+    return basis_state
 
 class BosonSpin:
     """ Class that defines a l = 1 boson spin state. The main difference 
@@ -223,7 +233,8 @@ class Walker:
     Instance variables: q, memory_dependence, state, tmax, spin_bin, max_pos.
     """
     
-    def __init__(self,in_pos_var, coin_instate, lattice, memory_dependence, q):
+    def __init__(self, in_pos_var, coin_instate_coeffs, lattice, 
+                memory_dependence, q):
         """ Parameters:
             in_pos_var (float): initial position variance;
 
@@ -245,11 +256,17 @@ class Walker:
 
         self.q = q
         self.memory_dependence = memory_dependence
+
+        coin_instate = np.zeros((2*dimension,1), dtype = 'csingle' )
+        for i in range(0,2*dimension):
+            coeff = coin_instate_coeffs[i]
+            coin_instate = coin_instate + coeff*FermionSpin(dimension,i)
+
         # Makes a column matrix for the walker state, in the fashion
         # [|coin_state(r)>,|coin_state(r')>,..] so that we have an list
         # of coin states for every position of the lattice.
-        self.state = np.zeros((size**(dimension),2**dimension,1),dtype='csingle')
-
+        self.state = np.zeros((size**(dimension),2**dimension,1), 
+                             dtype = 'csingle')
         # Localized initial position
         if in_pos_var.any() == 0.0:
             self.max_pos = np.zeros((dimension),dtype = int)
@@ -306,7 +323,7 @@ class Walker:
 
             self.tmax = min(self.tmax,max_index)
             
-            # Conditional to make the displacements vector in all the direc-
+            # Conditional to make the displacements vectors in all the direc-
             # tions the same size, appending zeros.
             if i != 0:
                 past_len = np.size(displacements_vector[i-1])

@@ -11,8 +11,8 @@ from datetime import datetime
 from shutil import copy
 
             
-def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle, 
-            phase_angle, q, memory_dependence, trace_entang):
+def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, 
+           coin_instate_coeffs, q, memory_dependence, trace_entang):
     """ Function that simulates the generalized elephant quantum walk.
     The parameters are:
         dimension (int): dimension of the lattice;
@@ -39,7 +39,7 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
         interdependence probabilities between the displacements in every 
         direction;
 
-        trace_entangle = [trace_dist,entang] (bool): list of boolean parameters
+        trace_entang = [trace_dist,entang] (bool): list of boolean parameters
         that specifies if the trace distance between the coin state and an 
         orthogonal one will be calculated and a entangling coin operator (2D)
         will be used.
@@ -72,30 +72,26 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
     statistics_file = open(main_dir+'/statistics.txt','w+')
     entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
 
-    coin_instate = 1
-    if trace_dist: ort_coin_instate = 1
-    for i in range(0,dimension):
-        rad_ba = (np.pi/180)*bloch_angle[i]
-        rad_pa = (np.pi/180)*phase_angle [i]
- 
-        if 'fermion' == coin_type[i]:
-            f = gEQWalks.FermionSpin()
-            up_state = np.cos(rad_ba)*f.up
-            down_state = np.exp(1j*rad_pa)*np.sin(rad_ba)*f.down
-            coin_instate = np.kron(coin_instate,up_state + down_state)
-
-            # Here we pick a orthogonal coin state to the initial coin state.
-            if trace_dist:
-                o_up_state = -1*np.exp(-1j*rad_pa)*np.sin(rad_ba)*f.up
-                o_down_state = np.cos(rad_ba)*f.down
-                ort_coin_instate = np.kron(ort_coin_instate,
-                                        o_up_state + o_down_state)
-
-    W = gEQWalks.Walker(in_pos_var, coin_instate, L, memory_dependence, q)
+    norm = (1/np.sqrt(np.dot(np.conj(coin_instate_coeffs),coin_instate_coeffs.T)))
+    coin_instate_coeffs = norm*coin_instate_coeffs
+    W = gEQWalks.Walker(in_pos_var, coin_instate_coeffs, L, memory_dependence, q)
 
     if trace_dist: 
         trace_dist_file = open(main_dir+'/trace_distance.txt','w+')
-        W_orthogonal = gEQWalks.Walker(in_pos_var, ort_coin_instate, L, 
+        # Gram-Schmidt process about the |00..> state
+        ort_cstate_coeffs = -1*coin_instate_coeffs
+        # Check if the initial state is the |00..> and to the process about
+        # the |010..> state
+        if not coin_instate_coeffs[1:].any(axis = 0):
+            ort_cstate_coeffs = np.conj(coin_instate_coeffs[1])*ort_cstate_coeffs
+            ort_cstate_coeffs[1] = 1 + ort_cstate_coeffs[1]
+        else:
+            ort_cstate_coeffs = np.conj(coin_instate_coeffs[0])*ort_cstate_coeffs
+            ort_cstate_coeffs[0] = 1 + ort_cstate_coeffs[0]
+        norm = (1/np.sqrt(np.dot(np.conj(ort_cstate_coeffs),ort_cstate_coeffs.T)))
+        ort_cstate_coeffs = norm*ort_cstate_coeffs
+
+        W_orthogonal = gEQWalks.Walker(in_pos_var, ort_cstate_coeffs, L, 
                                         memory_dependence, q)
         # As we want the same evolution, the displacements in every time step
         # has to be the same for both states.
@@ -125,7 +121,6 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
             trace_dist_file = open(main_dir+'/trace_distance.txt','a')
             td = statistics.trace_distance(W.state,W_orthogonal.state,L)
             trace_dist_file.write('%f\n' %td)
-            trace_dist_file.close()
             W_orthogonal.walk(c,L,entang,t)
 
 #        trace = 0
@@ -137,64 +132,65 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, bloch_angle,
 
     entanglement_file.close()
     statistics_file.close()
+    if trace_dist:
+        trace_dist_file.close()
     print("--- %s seconds ---" % (time.time() - start_time))
 
     return(main_dir,W.tmax)
 
 if __name__ == '__main__':
-    params = [x.split(' ')[2:] for x in open('gEQW.cfg').read().splitlines()]
+    parameters = []
+    for x in open('gEQW.cfg').read().splitlines():
+        if x[0] != '#':
+            parameters.append(x.split(' ')[2:])
+
     # The order in which the parameters are readed are specified by the cfg file.
-    dimension = int(params[0][0])
-    size = int(params[1][0])
+    dimension = int(parameters[0][0])
+    size = int(parameters[1][0])
 
     thetas = []
     coin_type = []
-    bloch_angle = []
-    phase_angle = []
     in_pos_var = []
 
     for i in range(0,dimension):
-        coin_type.append(params[2][i])
-        thetas.append(float(params[3][i]))
-        in_pos_var.append(float(params[4][i]))
-
+        coin_type.append(parameters[2][i])
+        thetas.append(float(parameters[3][i]))
+        in_pos_var.append(float(parameters[4][i]))
     in_pos_var = np.array(in_pos_var)
-
-    for i in range (0,2*dimension,2):
-        bloch_angle.append(float(params[5][i]))
-        phase_angle.append(float(params[5][i+1]))
-
     thetas = np.array(thetas)
+
+    coin_instate_coeffs = [complex(i) for i in parameters[5]]
+    coin_instate_coeffs = np.array(coin_instate_coeffs)
 
     try:
         os.mkdir('data')
     except:
         pass    
     
-    q = []
-    for i in range (0,dimension):
-        q.append(float(params[6][i]))
+    q = [float(i) for i in parameters[6]]
 
-    memory_dependence = params[7]
-    for i in range(0,len(memory_dependence)):
-        memory_dependence[i] = float(memory_dependence[i])
+    memory_dependence = [float(i) for i in parameters[7]]
     memory_dependence = np.array(memory_dependence)
     memory_dependence = memory_dependence.reshape((dimension,dimension))
 
-    trace_dist = params[8][0]
-    if trace_dist == 'False': trace_dist = False
-    elif trace_dist == 'True': trace_dist = True
+    trace_dist = parameters[8][0]
+    if trace_dist == 'False': 
+        trace_dist = False
+    elif trace_dist == 'True': 
+        trace_dist = True
 
-    entang = params[9][0]
-    if entang == 'False': entang = False
-    elif entang == 'True': entang = True
+    entang = parameters[9][0]
+    if entang == 'False': 
+        entang = False
+    elif entang == 'True': 
+        entang = True
 
     trace_entang = [trace_dist,entang]
 
     main_dir,tmax = gEQWalk(dimension, size, thetas, in_pos_var, coin_type, 
-                        bloch_angle, phase_angle, q, memory_dependence, 
-                        trace_entang)
+                           coin_instate_coeffs, q, memory_dependence, 
+                           trace_entang)
 
-#    plots.plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle, 
-#              phase_angle, q, trace_entang, tmax)
+    plots.plot(main_dir, dimension, size, thetas, in_pos_var, 
+               coin_instate_coeffs, q, trace_entang, tmax)
 

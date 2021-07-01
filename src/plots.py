@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import optimize
 
-def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle, 
-        phase_angle, q, trace_entang, tmax):
+def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
+        q, trace_entang, tmax):
     """ Function that makes the plots for the final position probabilities  
     distribuitions and the variances,entanglement entropy for every
     dimension. The first parameter is the directory string in which the
@@ -23,25 +23,19 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
     str_q = str_q[0:np.size(str_q)-2]
     str_q = str_q +']'
         
-    title_str = r'$ \Theta (s) = '+str(thetas)
-    title_str = title_str +', \Omega (s) = '+str(bloch_angle)
-    title_str = title_str +', \phi (s) = '+str(phase_angle)
-    title_str = title_str +', q = '+str_q+'$'
+
+    title_str = ''
+#    title_str = r'$ \Theta (s) = '+str(thetas)
+#    title_str = title_str +', \Omega (s) = '+str(bloch_angle)
+#    title_str = title_str +', \phi (s) = '+str(phase_angle)
+#    title_str = title_str +', q = '+str_q+'$'
     
-    prob_dist_file = open(main_dir+'/pd_'+str(tmax-1),'r')
+    probabilities = np.load(main_dir+'/pd_'+str(tmax-1)+'.npy')
     statistics_file = open(main_dir+'/statistics.txt','r')
     entanglement_file = open(main_dir+'/entanglement_entropy.txt','r')
     
-    probabilities = [] 
     statistics = []
     entang_entrop = []    
-
-    # Here we read the lines and separate the elements not including spaces.
-    for x in prob_dist_file.readlines():
-        d_prob = []
-        for y in x.split('\t'):
-            if y != '\n': d_prob.append(float(y))
-        probabilities.append(d_prob)
 
     for x in statistics_file.readlines():
         t_stat = []
@@ -56,7 +50,6 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
         entang_entrop.append(ent_data)
  
     statistics = np.array(statistics)
-    probabilities = np.array(probabilities)
     entang_entrop = np.array(entang_entrop)
 
     # List of the positions in the lattice for the plot.
@@ -85,7 +78,7 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
 
         fig = plt.figure(figsize=(16,9),dpi=200) 
         plt.title(title_str+r'$, t ='+str(tmax-1)+'$',fontsize=16)
-        k,= plt.plot(positions,probabilities[i,:],lw=2,label='Simulation', 
+        k,= plt.plot(positions,probabilities,lw=2,label='Simulation', 
                      color = 'Blue')
         plt.grid(linestyle='--')
         plt.xlabel(r'$'+label_dimension+'$',fontsize=16)
@@ -100,8 +93,10 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
         variance = statistics[:,dimension+1+i]
         log_variance = [] 
         for j in variance[1:]:
-            if j != '0' and j != 'inf':
+            if j != 0. and j != 'inf':
                 log_variance.append(np.log(j))
+            else:
+                log_variance.append(0)
 
         log_variance = np.array(log_variance) 
 
@@ -144,7 +139,6 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, bloch_angle,
         plt.savefig(main_dir+'/'+coin_dimension+'_entropy',bbox_inches='tight')
         plt.clf()
 
-    prob_dist_file.close()
     statistics_file.close()
     entanglement_file.close()
 

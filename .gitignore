@@ -131,9 +131,7 @@ dmypy.json
 # support directories and files
 /src/data
 /src/plots
-/src/gEQW.cfg
 /src/plot.py
 /src/simulation.py
 /src/error_correction.py
 /src/mean_diffcoef.py
-
