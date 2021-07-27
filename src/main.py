@@ -70,7 +70,7 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
     c = gEQWalks.FermionCoin(thetas,L)
 
     statistics_file = open(main_dir+'/statistics.txt','w+')
-    entanglement_file = open(main_dir+'/entanglement_entropy.txt','w+')
+    coin_statistics_file = open(main_dir+'/coin_statistics.txt','w+')
 
     norm = (1/np.sqrt(np.dot(np.conj(coin_instate_coeffs),coin_instate_coeffs.T)))
     coin_instate_coeffs = norm*coin_instate_coeffs
@@ -100,7 +100,7 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
     print('Max. time: ', W.tmax,end = '\n')
     for t in range(0,W.tmax):
         ps,mp,msq,sq = statistics.position_statistics(W.state,L)
-        entang_entrop = statistics.entanglement_entropy(W.state,L)
+        entang_entrop, negativity = statistics.coin_statistics(W.state,L)
 
         statistics_file = open(main_dir+'/statistics.txt','a')
         statistics_file.write('%f\t' %t)
@@ -108,9 +108,10 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
         statistics_file.writelines('%f\t' %i[0] for i in sq)
         statistics_file.write('\n')
 
-        entanglement_file = open(main_dir+'/entanglement_entropy.txt','a')
-        entanglement_file.writelines('%f\t' %i for i in entang_entrop)
-        entanglement_file.write('\n')
+        coin_statistics_file = open(main_dir+'/coin_statistics.txt','a')
+        coin_statistics_file.writelines('%f\t' %i for i in entang_entrop)
+        coin_statistics_file.write('%f' %negativity)
+        coin_statistics_file.write('\n')
         
         # For every time step a .npy file to save the probabilities is created.
         np.save(main_dir+'/pd_'+str(t),  ps)
@@ -122,15 +123,15 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
             td = statistics.trace_distance(W.state,W_orthogonal.state,L)
             trace_dist_file.write('%f\n' %td)
             W_orthogonal.walk(c,L,entang,t)
-
+########### trace condition check ############################################
 #        trace = 0
 #        for state in W.state:
 #            trace = trace + np.real(np.dot(np.conj(state.T),state))
 #        if trace < 9e-10 : print('Error! Not TP! \n')
-       
+##############################################################################
         W.walk(c,L,entang,t)
 
-    entanglement_file.close()
+    coin_statistics_file.close()
     statistics_file.close()
     if trace_dist:
         trace_dist_file.close()
@@ -193,4 +194,3 @@ if __name__ == '__main__':
 
     plots.plot(main_dir, dimension, size, thetas, in_pos_var, 
                coin_instate_coeffs, q, trace_entang, tmax)
-

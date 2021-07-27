@@ -1,6 +1,8 @@
 import numpy as np
 from itertools import product
 from scipy import sparse
+from numba import int32, float32, complex64
+from numba.experimental import jitclass
 
 def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
     """ Returns: 
@@ -222,8 +224,9 @@ class BosonSpin:
     def __init__(self):
         self.up = np.array([[1],[0],[0]]) 
         self.zero = np.array([[0],[1],[0]]) 
-        self.down = np.array([[0],[0],[1]]) 
-           
+        self.down = np.array([[0],[0],[1]])
+
+
 class Walker:
     """ The walker class defines the walker that will go under the walk and the
     walk itself, i.e. the unitary evolution that he goes under.

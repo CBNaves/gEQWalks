@@ -37,8 +37,9 @@ def position_statistics(state,lattice):
     return pos_prob_dist, mean_pos, mean_sq_pos, sigma_squared
     
 
-def entanglement_entropy(state,lattice):
-    """ Returns the entanglement entropy of the coin degree.
+def coin_statistics(state,lattice):
+    """ Returns the entanglement entropy of the coin degrees and the negativity
+    of the total coin state.
 
     state = walker's state, method of the Walker class;
     lattice = lattice in which the walker walks in. 
@@ -55,8 +56,21 @@ def entanglement_entropy(state,lattice):
         coin_density = coin_density + np.dot(coin_state,np.conj(coin_state.T)) 
 
     # Reshaping the coin density in a suitable manner for partial tracing.
-    coin_reshape_list = [2 for x in range(0,2**dimension)]
+    coin_reshape_list = 2*np.ones(2**dimension, int)
     coin_density = coin_density.reshape(coin_reshape_list)
+
+    if dimension == 2:
+        pt_cstate = np.transpose(coin_density, axes=(0,3,2,1))
+        pt_cstate = pt_cstate.reshape((2**dimension,2**dimension))
+
+        eigen_val, eigen_vec = np.linalg.eig(pt_cstate)
+        eigen_val = np.real(eigen_val)
+    
+        negativity = [np.linalg.norm(x) for x in eigen_val]
+        negativity = (sum(negativity) - 1)/2
+
+    else:
+        negativity = 0
 
     remaining_density = coin_density 
     entanglement_entropy_list = []
@@ -85,7 +99,7 @@ def entanglement_entropy(state,lattice):
         entropy = (-lm*lgm- lp*lgp)/np.log(2)
         entanglement_entropy_list.append(entropy)
 
-    return entanglement_entropy_list
+    return entanglement_entropy_list, negativity
 
 def trace_distance(rho,sigma,lattice):
     """ Returns the trace distance between two coin states.
@@ -115,4 +129,3 @@ def trace_distance(rho,sigma,lattice):
         trace_dist = trace_dist + (1/2)*np.linalg.norm(i)
 
     return trace_dist  
-  

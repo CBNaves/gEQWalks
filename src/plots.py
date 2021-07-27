@@ -24,18 +24,17 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
     str_q = str_q +']'
         
 
-    title_str = ''
-#    title_str = r'$ \Theta (s) = '+str(thetas)
-#    title_str = title_str +', \Omega (s) = '+str(bloch_angle)
-#    title_str = title_str +', \phi (s) = '+str(phase_angle)
-#    title_str = title_str +', q = '+str_q+'$'
+    title_str = r'$ \Theta (s) = '+str(thetas)
+    title_str = title_str +', \Omega (s) = '+str(bloch_angle)
+    title_str = title_str +', \phi (s) = '+str(phase_angle)
+    title_str = title_str +', q = '+str_q+'$'
     
     probabilities = np.load(main_dir+'/pd_'+str(tmax-1)+'.npy')
     statistics_file = open(main_dir+'/statistics.txt','r')
-    entanglement_file = open(main_dir+'/entanglement_entropy.txt','r')
+    coin_statistics_file = open(main_dir+'/coin_statistics.txt','r')
     
     statistics = []
-    entang_entrop = []    
+    cstatistics = []    
 
     for x in statistics_file.readlines():
         t_stat = []
@@ -43,14 +42,14 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
             if y != '\n': t_stat.append(float(y))
         statistics.append(t_stat)
 
-    for x in entanglement_file.readlines():
+    for x in coin_statistics_file.readlines():
         ent_data = []
         for y in x.split('\t'):
             if y != '\n': ent_data.append(float(y))
-        entang_entrop.append(ent_data)
+        cstatistics.append(ent_data)
  
     statistics = np.array(statistics)
-    entang_entrop = np.array(entang_entrop)
+    cstatistics = np.array(cstatistics)
 
     # List of the positions in the lattice for the plot.
     positions = []
@@ -78,7 +77,7 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
 
         fig = plt.figure(figsize=(16,9),dpi=200) 
         plt.title(title_str+r'$, t ='+str(tmax-1)+'$',fontsize=16)
-        k,= plt.plot(positions,probabilities,lw=2,label='Simulation', 
+        k,= plt.plot(positions,np.sum(probabilities, axis=i),lw=2,label='Simulation', 
                      color = 'Blue')
         plt.grid(linestyle='--')
         plt.xlabel(r'$'+label_dimension+'$',fontsize=16)
@@ -128,7 +127,7 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
         plt.clf()
         
         plt.title(r'$'+coin_dimension+'$'+', '+title_str,fontsize=16)
-        n, = plt.plot(time_steps,entang_entrop[:,i],
+        n, = plt.plot(time_steps,cstatistics[:,i],
                       label = 'Entanglement Entropy',lw=2)
         plt.grid(linestyle='--')
         plt.xlabel(r't',fontsize=16)
@@ -140,7 +139,7 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
         plt.clf()
 
     statistics_file.close()
-    entanglement_file.close()
+    coin_statistics_file.close()
 
     if trace_dist:
         trace_dist_vector = []
