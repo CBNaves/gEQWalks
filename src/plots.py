@@ -25,9 +25,9 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
         
 
     title_str = r'$ \Theta (s) = '+str(thetas)
-    title_str = title_str +', \Omega (s) = '+str(bloch_angle)
-    title_str = title_str +', \phi (s) = '+str(phase_angle)
-    title_str = title_str +', q = '+str_q+'$'
+    title_str = title_str +', |\psi_c\langle (0) = '+str(coin_instate_coeffs)
+#    title_str = title_str +', \phi (s) = '+str(phase_angle)
+    title_str = title_str +', steps params = '+str_q+'$'
     
     probabilities = np.load(main_dir+'/pd_'+str(tmax-1)+'.npy')
     statistics_file = open(main_dir+'/statistics.txt','r')
@@ -77,8 +77,12 @@ def plot(main_dir, dimension, size, thetas, in_pos_var, coin_instate_coeffs,
 
         fig = plt.figure(figsize=(16,9),dpi=200) 
         plt.title(title_str+r'$, t ='+str(tmax-1)+'$',fontsize=16)
-        k,= plt.plot(positions,np.sum(probabilities, axis=i),lw=2,label='Simulation', 
-                     color = 'Blue')
+        if dimension > 1:
+            k,= plt.plot(positions,np.sum(probabilities, axis=dimension-i-1),lw=2,label='Simulation', 
+                         color = 'Blue')
+        else:
+            k,= plt.plot(positions, probabilities,lw=2,label='Simulation',
+                         color = 'Blue')
         plt.grid(linestyle='--')
         plt.xlabel(r'$'+label_dimension+'$',fontsize=16)
         plt.xticks(fontsize=14)

@@ -18,7 +18,6 @@ def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
     size = size of the lattice.
 
     """
-
     displacements_vector = []
     # Parameter to check if the sum of displacements pass the lattice size.
     sum_dx = 0 
@@ -27,7 +26,7 @@ def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
 
     for i in range(1,tmax+1):
         time_vector = np.arange(1,i+1)
-        probability_distribution = prob_dist_function(*prob_dist_parameters,
+        probability_distribution = prob_dist_function(prob_dist_parameters,
                                                      time_vector)
         dx = np.random.choice(time_vector, p = probability_distribution)
         displacements_vector.append(dx)
@@ -41,31 +40,6 @@ def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
             break
 
     return max_time_step, displacements_vector
-
-def qExponential(q,x):
-    """ Returns a discrete Q-exponential probability distribution, defined by 
-    the q parameter.
-    """
-    if q == 1:
-        probability_distribution = (2-q)*np.exp(-x)
-
-    elif q < 1 and q >=0:
-        probability_distribution = []
-        for i in x:
-            if (1-q)*i <= 1:
-                probability_distribution.append((2-q) * (1-(1-q)*i)**(1/(1-q)))
-            else:
-                probability_distribution.append(0)
-
-    elif q > 1 and q <= 10**(3):
-        probability_distribution = (2-q)*(1-(1-q)*x)**(1/(1-q))
-
-    elif q > 10**(3):
-        probability_distribution = np.ones((np.size(x)))
-    
-    normalization = sum(probability_distribution)
-    
-    return probability_distribution/normalization
 
 def gaussian_dist(pos,sigma_sq=0.0):
     """ Returns a gaussian distribution array.
@@ -237,7 +211,8 @@ class Walker:
     """
     
     def __init__(self, in_pos_var, coin_instate_coeffs, lattice, 
-                memory_dependence, q):
+                memory_dependence, displacement_prob_dist_functions,
+                displacement_prob_dist_parameters):
         """ Parameters:
             in_pos_var (float): initial position variance;
 
@@ -257,7 +232,6 @@ class Walker:
         size = lattice.size
         pos_basis = lattice.pos_eig_val
 
-        self.q = q
         self.memory_dependence = memory_dependence
 
         coin_instate = np.zeros((2*dimension,1), dtype = 'csingle' )
@@ -313,22 +287,23 @@ class Walker:
             self.spin_bins.append(spin_str)
 
         displacements_vector = []
-        for i in range(0,dimension):
-            if q[i] == 0.5:
-                displacements = np.ones(size//2)
-                max_index = size//2
+        for i in range(0,len(displacement_prob_dist_functions)):
+            probability_distribution = displacement_prob_dist_functions[i]
+            probability_distribution_parameters = displacement_prob_dist_parameters[i]
+
+            if probability_distribution.__name__ != 'correlated_displacements':
+                max_index, displacements = DisplacementsGenerator(probability_distribution_parameters,
+                probability_distribution, size)
+
+                displacements_vector.append(displacements)
+
+                self.tmax = min(self.tmax,max_index)
             else:
-                prob_dist_parameters = [q[i]]
-                prob_dist_function = qExponential
-                max_index, displacements = DisplacementsGenerator(prob_dist_parameters, prob_dist_function,size)
-
-            displacements_vector.append(displacements)
-
-            self.tmax = min(self.tmax,max_index)
+                displacements_vector[i-1] = probability_distribution(probability_distribution_parameters, *displacements_vector)
             
             # Conditional to make the displacements vectors in all the direc-
             # tions the same size, appending zeros.
-            if i != 0:
+            if i != 0 and i < dimension:
                 past_len = np.size(displacements_vector[i-1])
                 act_len = np.size(displacements_vector[i])
 
