@@ -117,8 +117,8 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
         coin_statistics_file.write('%f' %negativity)
         coin_statistics_file.write('\n')
         
-        # For every time step a .npy file to save the probabilities is created.
-        np.save(main_dir+'/pd_'+str(t),  ps)
+#        # For every time step a .npy file to save the probabilities is created.
+#        np.save(main_dir+'/pd_'+str(t),  ps)
 
         print('time: ',t,end = '\r')
 
@@ -127,14 +127,15 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
             td = statistics.trace_distance(W.state,W_orthogonal.state,L)
             trace_dist_file.write('%f\n' %td)
             W_orthogonal.walk(c,L,entang,t)
-########### trace condition check ############################################
+########## trace condition check ############################################
 #        trace = 0
 #        for state in W.state:
 #            trace = trace + np.real(np.dot(np.conj(state.T),state))
 #        if trace < 9e-10 : print('Error! Not TP! \n')
-##############################################################################
+#############################################################################
         W.walk(c,L,entang,t)
 
+    np.save(main_dir+'/pd_'+str(t),  ps)
     coin_statistics_file.close()
     statistics_file.close()
     if trace_dist:
@@ -174,7 +175,6 @@ if __name__ == '__main__':
 
     displacement_functions = []
     for function in parameters[6]:
-        print(function)
         displacement_function = displacements_distributions.functions[function]
         displacement_functions.append(displacement_function)    
     
@@ -203,5 +203,5 @@ if __name__ == '__main__':
                            displacement_parameters, memory_dependence, 
                            trace_entang)
 
-    plots.plot(main_dir, dimension, size, thetas, in_pos_var, 
-               coin_instate_coeffs, displacement_parameters, trace_entang, tmax)
+#    plots.plot(main_dir, dimension, size, thetas, in_pos_var, 
+#               coin_instate_coeffs, displacement_parameters, trace_entang, tmax)

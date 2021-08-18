@@ -28,7 +28,7 @@ def qExponential(q,x):
     
     return probability_distribution/normalization
 
-def correlated_displacements(rho, l_x, l_a):
+def correlated_displacements(rho, l_x, l_a, size):
     """ Function that introduces a correlation between the steps sizes
     in l_x and l_y.
 
@@ -42,13 +42,23 @@ def correlated_displacements(rho, l_x, l_a):
 
     The displacements array must be of the same size.
     """
-
+    h_size = size//2
     l_x = np.array(l_x)
     l_a = np.array(l_a)
 
     l_y = rho*l_x + np.sqrt(1 - rho**2)*l_a
 
-    return np.array([max(dy,0) for dy in l_y])
+    displacements_vector = []
+    max_index = 0
+    step_sum = 0
+    for dy in l_y:
+        step = round(max(0,dy))
+        step_sum = step_sum + step
+        if step_sum <= h_size:
+            displacements_vector.append(step)
+            max_index = max_index + 1
+        
+    return max_index, displacements_vector
 
 
 # Dictionary used to call the above functions through the specification in the .cfg file

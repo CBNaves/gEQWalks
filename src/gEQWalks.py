@@ -4,7 +4,7 @@ from scipy import sparse
 from numba import int32, float32, complex64
 from numba.experimental import jitclass
 
-def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
+def DisplacementsGenerator(prob_dist_parameters, prob_dist_function, size):
     """ Returns: 
     max_time_step = the time step in which the walker doesn't exceeds the 
     lattice size;
@@ -41,7 +41,7 @@ def DisplacementsGenerator(prob_dist_parameters,prob_dist_function,size):
 
     return max_time_step, displacements_vector
 
-def gaussian_dist(pos,sigma_sq=0.0):
+def gaussian_dist(pos, sigma_sq=0.0):
     """ Returns a gaussian distribution array.
 
     pos: position array for the gaussian distribution calculation;
@@ -55,7 +55,7 @@ def gaussian_dist(pos,sigma_sq=0.0):
     else: 
         return np.exp(-pos**(2)/(4*sigma_sq))/(2*np.pi*sigma_sq)**(1/4)
     
-def pos_index_function(pos,size,dimension):
+def pos_index_function(pos, size, dimension):
     """ Returns the index of the matrix element of the walker
     state corresponding to the position specified by the parameter pos.
 
@@ -276,8 +276,6 @@ class Walker:
   
             self.state = (1/np.sqrt(normalization))*self.state
 
-        self.tmax = size//2
-
         self.spin_bins = [] # List that saves the spin binaries.
         for j in range(0,2**dimension):
             spin_str = bin(j)
@@ -286,6 +284,7 @@ class Walker:
                     spin_str = '0' + spin_str
             self.spin_bins.append(spin_str)
 
+        self.tmax = size//2
         displacements_vector = []
         for i in range(0,len(displacement_prob_dist_functions)):
             probability_distribution = displacement_prob_dist_functions[i]
@@ -294,16 +293,15 @@ class Walker:
             if probability_distribution.__name__ != 'correlated_displacements':
                 max_index, displacements = DisplacementsGenerator(probability_distribution_parameters,
                 probability_distribution, size)
-
-                displacements_vector.append(displacements)
-
-                self.tmax = min(self.tmax,max_index)
+                
             else:
-                displacements_vector[i-1] = probability_distribution(probability_distribution_parameters, *displacements_vector)
+               max_index, displacements = probability_distribution(probability_distribution_parameters, *displacements_vector, size)
             
+            displacements_vector.append(displacements)
+            self.tmax = min(self.tmax,max_index)
             # Conditional to make the displacements vectors in all the direc-
             # tions the same size, appending zeros.
-            if i != 0 and i < dimension:
+            if i != 0:
                 past_len = np.size(displacements_vector[i-1])
                 act_len = np.size(displacements_vector[i])
 
@@ -313,7 +311,10 @@ class Walker:
                 elif past_len > act_len:
                     for j in range(0,past_len-act_len):
                         displacements_vector[i].append(0)
-        
+
+            if i > dimension-1:
+                displacements_vector.pop(i-1)
+
         self.displacements_vector = np.array(displacements_vector)
 
     def walk(self, coin, lattice, entang, t):
@@ -349,7 +350,7 @@ class Walker:
             x_i = int(-self.max_pos[0]+size//2)
             x_f = int(self.max_pos[0]+size//2+1)
             y_i = int(-self.max_pos[1]+size//2)
-            y_f = int(self.max_pos[1]+size//2+1) 
+            y_f = int(self.max_pos[1]+size//2+1)
             lattice.useful_eig_val = np.copy(pos_basis[x_i:x_f,y_i:y_f])
             lattice.useful_eig_val = lattice.useful_eig_val.reshape((x_f-x_i)*(y_f-y_i),2)         
 
