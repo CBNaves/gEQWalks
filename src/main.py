@@ -14,7 +14,7 @@ from shutil import copy
             
 def gEQWalk(dimension, size, thetas, in_pos_var, coin_type, 
            coin_instate_coeffs, displacement_functions,
-           displacement_parameters, memory_dependence, trace_entang):
+           displacement_parameters, trace_entang):
     """ Function that simulates the generalized elephant quantum walk.
     The parameters are:
         dimension (int): dimension of the lattice;
@@ -34,12 +34,8 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
         displacement_functions (array, functions): array of the probability
         distribution functions used to generated the displacements.
 
-        displacement_parameters (array): array of parameters for each probability
-        function used to generate the displacements.
-
-        memory_dependence = [p_11,p_12,...] (array): array with the 
-        interdependence probabilities between the displacements in every 
-        direction;
+        displacement_parameters (array): array of parameters for each 
+        probability function used to generate the displacements.
 
         trace_entang = [trace_dist,entang] (bool): list of boolean parameters
         that specifies if the trace distance between the coin state and an 
@@ -76,7 +72,7 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
 
     norm = (1/np.sqrt(np.dot(np.conj(coin_instate_coeffs),coin_instate_coeffs.T)))
     coin_instate_coeffs = norm*coin_instate_coeffs
-    W = gEQWalks.Walker(in_pos_var, coin_instate_coeffs, L, memory_dependence,
+    W = gEQWalks.Walker(in_pos_var, coin_instate_coeffs, L, 
                         displacement_functions, displacement_parameters)
 
     if trace_dist: 
@@ -95,8 +91,8 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
         ort_cstate_coeffs = norm*ort_cstate_coeffs
 
         W_orthogonal = gEQWalks.Walker(in_pos_var, ort_cstate_coeffs, L, 
-                                      memory_dependence, 
-                                      displacement_functions, displacement_parameters)
+                                       displacement_functions, 
+                                       displacement_parameters)
         # As we want the same evolution, the displacements in every time step
         # has to be the same for both states.
         W_orthogonal.displacements_vector = W.displacements_vector    
@@ -117,8 +113,8 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
         coin_statistics_file.write('%f' %negativity)
         coin_statistics_file.write('\n')
         
-#        # For every time step a .npy file to save the probabilities is created.
-#        np.save(main_dir+'/pd_'+str(t),  ps)
+        # For every time step a .npy file to save the probabilities is created.
+        np.save(main_dir+'/pd_'+str(t),  ps)
 
         print('time: ',t,end = '\r')
 
@@ -131,11 +127,11 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
 #        trace = 0
 #        for state in W.state:
 #            trace = trace + np.real(np.dot(np.conj(state.T),state))
-#        if trace < 9e-10 : print('Error! Not TP! \n')
+#        print(trace[0][0],'\n')
+#        if trace[0][0] < 0.999999999 : print('Error! Not TP! \n')
 #############################################################################
         W.walk(c,L,entang,t)
 
-    np.save(main_dir+'/pd_'+str(t),  ps)
     coin_statistics_file.close()
     statistics_file.close()
     if trace_dist:
@@ -180,17 +176,13 @@ if __name__ == '__main__':
     
     displacement_parameters = [float(i) for i in parameters[7]]
 
-    memory_dependence = [float(i) for i in parameters[8]]
-    memory_dependence = np.array(memory_dependence)
-    memory_dependence = memory_dependence.reshape((dimension,dimension))
-
-    trace_dist = parameters[9][0]
+    trace_dist = parameters[8][0]
     if trace_dist == 'False': 
         trace_dist = False
     elif trace_dist == 'True': 
         trace_dist = True
 
-    entang = parameters[10][0]
+    entang = parameters[9][0]
     if entang == 'False': 
         entang = False
     elif entang == 'True': 
@@ -200,8 +192,7 @@ if __name__ == '__main__':
 
     main_dir,tmax = gEQWalk(dimension, size, thetas, in_pos_var, coin_type, 
                            coin_instate_coeffs, displacement_functions, 
-                           displacement_parameters, memory_dependence, 
-                           trace_entang)
+                           displacement_parameters, trace_entang)
 
 #    plots.plot(main_dir, dimension, size, thetas, in_pos_var, 
 #               coin_instate_coeffs, displacement_parameters, trace_entang, tmax)

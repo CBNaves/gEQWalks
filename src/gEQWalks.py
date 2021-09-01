@@ -1,22 +1,21 @@
 import numpy as np
 from itertools import product
 from scipy import sparse
-from numba import int32, float32, complex64
-from numba.experimental import jitclass
 
 def DisplacementsGenerator(prob_dist_parameters, prob_dist_function, size):
     """ Returns: 
-    max_time_step = the time step in which the walker doesn't exceeds the 
-    lattice size;
-    displacements_vector = displacements sizes that will be used in the walk 
-    step, accordingly with the probability distribution used.
+        max_time_step = the time step in which the walker doesn't exceeds the
+        lattice size;
+
+        displacements_vector = displacements sizes that will be used in the
+        walk step, accordingly with the probability distribution used;
 
     prob_dist_parameters: parameters used by the probability distribution 
     function;
 
     prob_dist_function: probability of the step sizes function;
-    size = size of the lattice.
 
+    size = size of the lattice.
     """
     displacements_vector = []
     # Parameter to check if the sum of displacements pass the lattice size.
@@ -25,7 +24,7 @@ def DisplacementsGenerator(prob_dist_parameters, prob_dist_function, size):
     tmax = size//2 
 
     for i in range(1,tmax+1):
-        time_vector = np.arange(1,i+1)
+        time_vector = np.arange(1,i+1, dtype = int)
         probability_distribution = prob_dist_function(prob_dist_parameters,
                                                      time_vector)
         dx = np.random.choice(time_vector, p = probability_distribution)
@@ -207,12 +206,12 @@ class Walker:
 
     Methods: walk.
 
-    Instance variables: q, memory_dependence, state, tmax, spin_bin, max_pos.
+    Instance variables: q, state, tmax, spin_bin, max_pos.
     """
     
     def __init__(self, in_pos_var, coin_instate_coeffs, lattice, 
-                memory_dependence, displacement_prob_dist_functions,
-                displacement_prob_dist_parameters):
+                 displacement_prob_dist_functions,
+                 displacement_prob_dist_parameters):
         """ Parameters:
             in_pos_var (float): initial position variance;
 
@@ -220,19 +219,12 @@ class Walker:
 
             lattice: lattice object in which the walker walks in;
 
-            memory_dependence [p_11,p_12,...,p1(d-1),p21,...]: for a random 
-        step size multidimensional evolution it gives the probability of 
-        selecting the displacement of the other directions, e.g. p_12 would be 
-        the probability of selecting the displacement of the direction 2 for 
-        1.
             q (float): parameter that specifies the q-Exponential 
         distribution.    
         """
         dimension = lattice.dimension
         size = lattice.size
         pos_basis = lattice.pos_eig_val
-
-        self.memory_dependence = memory_dependence
 
         coin_instate = np.zeros((2*dimension,1), dtype = 'csingle' )
         for i in range(0,2*dimension):
@@ -328,12 +320,7 @@ class Walker:
         pos_basis = lattice.pos_eig_val
         state = np.copy(self.state)
 
-        # interdependence of the displacements.
-        displacements = []
-        dim_index_array = np.arange(0,int(dimension),dtype=int)
-        for i in range(0,dimension):
-            j = np.random.choice(dim_index_array,p = self.memory_dependence[i])
-            displacements.append(self.displacements_vector[j,t])
+        displacements = self.displacements_vector[:,t]
 
         for i in range(0,dimension):
             if self.max_pos[i] != size//2:
