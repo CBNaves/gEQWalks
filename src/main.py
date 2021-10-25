@@ -79,7 +79,7 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
         trace_dist_file = open(main_dir+'/trace_distance.txt','w+')
         # Gram-Schmidt process about the |00..> state
         ort_cstate_coeffs = -1*coin_instate_coeffs
-        # Check if the initial state is the |00..> and to the process about
+        # Check if the initial state is the |00..> and do the process about
         # the |010..> state
         if not coin_instate_coeffs[1:].any(axis = 0):
             ort_cstate_coeffs = np.conj(coin_instate_coeffs[1])*ort_cstate_coeffs
@@ -94,7 +94,7 @@ def gEQWalk(dimension, size, thetas, in_pos_var, coin_type,
                                        displacement_functions, 
                                        displacement_parameters)
         # As we want the same evolution, the displacements in every time step
-        # has to be the same for both states.
+        # has to be the same for both walkers.
         W_orthogonal.displacements_vector = W.displacements_vector    
 
     print('Max. time: ', W.tmax,end = '\n')
@@ -191,8 +191,10 @@ if __name__ == '__main__':
     trace_entang = [trace_dist,entang]
 
     main_dir,tmax = gEQWalk(dimension, size, thetas, in_pos_var, coin_type, 
-                           coin_instate_coeffs, displacement_functions, 
-                           displacement_parameters, trace_entang)
+                            coin_instate_coeffs, displacement_functions, 
+                            displacement_parameters, trace_entang)
 
-#    plots.plot(main_dir, dimension, size, thetas, in_pos_var, 
-#               coin_instate_coeffs, displacement_parameters, trace_entang, tmax)
+    displacement_functions = parameters[6]
+    plots.plot(main_dir, dimension, size, thetas, in_pos_var,
+               coin_instate_coeffs, displacement_functions, 
+               displacement_parameters, trace_entang, tmax)

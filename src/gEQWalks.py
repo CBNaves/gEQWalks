@@ -29,7 +29,7 @@ def DisplacementsGenerator(prob_dist_parameters, prob_dist_function, size):
                                                      time_vector)
         dx = np.random.choice(time_vector, p = probability_distribution)
         displacements_vector.append(dx)
-        sum_dx = sum_dx + dx
+        sum_dx += dx
 
         if sum_dx == size//2:
             max_time_step = i
@@ -353,7 +353,7 @@ class Walker:
 
                     if (pos[k] + displacement <= h_size and 
                         pos[k] + displacement >= -h_size):
-                        displaced_pos[k] = displaced_pos[k] + displacement 
+                        displaced_pos[k] += displacement 
                     else:
                         displaced_pos[k] = -pos[k]
 

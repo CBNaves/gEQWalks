@@ -28,6 +28,22 @@ def qExponential(q,x):
     
     return probability_distribution/normalization
 
+def Exponential(beta, x):
+    """ Returns a normalized exponential probability distribution.
+    """
+    probability_distribution = np.exp(beta*x)
+    normalization = sum(probability_distribution)
+
+    return probability_distribution/normalization
+
+def Cossine(omega,x):
+
+    t = len(x)
+    probability_distribution = np.cos(2*np.pi*omega*(x/t))**2
+    normalization = sum(probability_distribution)
+
+    return probability_distribution/normalization 
+
 def correlated_displacements(rho, l_x, l_a, size):
     """ Function that introduces a correlation between the steps sizes
     in l_x and l_y.
@@ -65,4 +81,5 @@ def correlated_displacements(rho, l_x, l_a, size):
 
 # Dictionary used to call the above functions through the specification in the .cfg file
 functions = {'qExponential': qExponential, 
-            'correlated_displacements': correlated_displacements}
+            'correlated_displacements': correlated_displacements, 
+            'Exponential': Exponential, 'Cossine': Cossine}
